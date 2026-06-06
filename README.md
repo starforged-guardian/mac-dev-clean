@@ -106,20 +106,6 @@ Docker VM data is intentionally report-only because deleting it directly can rem
 
 Supported age values are `s`, `m`, `h`, `d`, and `w`, for example `30d`, `12h`, or `2w`.
 
-## Development
-
-Run tests:
-
-```sh
-PYTHONPATH=src python3 -m unittest discover -s tests
-```
-
-Run a smoke check:
-
-```sh
-PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules
-```
-
 ## xcode-sim-prune
 
 This repository also includes `xcode-sim-prune`, a focused CLI for Xcode simulator storage. It uses `xcrun simctl` for simulator operations instead of deleting simulator internals directly.
@@ -165,3 +151,26 @@ Safety notes:
 - `delete-runtimes` requires `--older-than` and delegates to `xcrun simctl runtime delete --notUsedSinceDays`.
 - `erase-unused` never erases booted devices.
 - All destructive commands support `--dry-run` and `--json`.
+
+## Development
+
+Run tests:
+
+```sh
+PYTHONPATH=src python3 -m unittest discover -s tests
+```
+
+Run smoke checks:
+
+```sh
+PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules
+PYTHONPATH=src python3 -m mac_dev_clean.xcode_sim_prune list --json
+```
+
+## Contributing
+
+Contributions are welcome. Please keep changes aligned with the safety model: scans must be read-only, deletion must be explicit, and new cleanup behavior should include tests.
+
+## License
+
+`mac-dev-clean` is open source software released under the MIT License. See [LICENSE](LICENSE).

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Sequence
 
@@ -28,7 +29,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         if args.command == "list":
             inventory = load_inventory()
-            print(json.dumps(inventory.to_dict(), indent=2, sort_keys=True) if args.json else render_inventory(inventory))
+            print(
+                json.dumps(inventory.to_dict(), indent=2, sort_keys=True)
+                if args.json
+                else render_inventory(inventory)
+            )
             return 0
 
         if args.command == "delete-unavailable":
@@ -64,7 +69,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except ValueError as exc:
         parser.error(str(exc))
     except SimctlError as exc:
-        print(f"xcode-sim-prune: simctl failed: {exc}")
+        print(f"xcode-sim-prune: simctl failed: {exc}", file=sys.stderr)
         return 1
 
     return 1
@@ -90,8 +95,16 @@ def build_parser() -> argparse.ArgumentParser:
         "delete-runtimes",
         help="Delete simulator runtime images not used within the requested age.",
     )
-    runtime_parser.add_argument("--older-than", required=True, help="Age threshold, such as 180d or 26w.")
-    runtime_parser.add_argument("--keep-asset", action="store_true", help="Ask simctl to keep the associated mobile asset.")
+    runtime_parser.add_argument(
+        "--older-than",
+        required=True,
+        help="Age threshold, such as 180d or 26w.",
+    )
+    runtime_parser.add_argument(
+        "--keep-asset",
+        action="store_true",
+        help="Ask simctl to keep the associated mobile asset.",
+    )
     add_action_options(runtime_parser)
 
     erase_parser = subparsers.add_parser(
@@ -108,7 +121,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def add_action_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be affected without changing anything.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be affected without changing anything.",
+    )
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
 
@@ -220,4 +237,3 @@ def _format_datetime(value: object) -> str:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
