@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mac-dev-clean"
+version = "0.1.0"
+description = "Safely scan and clean common macOS developer caches."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "mac-dev-clean contributors" }
+]
+keywords = ["macos", "xcode", "homebrew", "docker", "npm", "gradle", "cli", "cleanup"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: System :: Filesystems",
+  "Topic :: Utilities"
+]
+
+[project.scripts]
+mac-dev-clean = "mac_dev_clean.cli:main"
+xcode-sim-prune = "mac_dev_clean.xcode_sim_prune:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
