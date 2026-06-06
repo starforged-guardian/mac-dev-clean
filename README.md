@@ -12,7 +12,7 @@ Safe, dry-run-first cleanup tools for macOS developer disk bloat.
 
 ## Why This Matters
 
-Xcode, simulators, Homebrew, Docker Desktop, npm, Gradle, and project `node_modules` directories can quietly consume huge amounts of disk space. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
+Xcode, simulators, Homebrew, Docker Desktop, npm, Gradle, and project `node_modules` directories can quietly consume huge amounts of disk space. That hurts more now that Mac storage upgrades are expensive and many developers are still working on 256GB MacBooks or base-model machines with little room for simulator runtimes, build artifacts, and dependency caches. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
 
 ## Install
 
