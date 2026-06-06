@@ -182,7 +182,7 @@ def scan(
 
     if include_node_modules:
         roots = list(search_roots) if search_roots else default_search_roots(home, cwd)
-        targets.extend(_scan_node_modules(roots, node_modules_older_than, now))
+        targets.extend(_scan_node_modules(roots, node_modules_older_than, now, home))
 
     return sorted(targets, key=lambda item: item.size_bytes, reverse=True)
 
@@ -209,7 +209,7 @@ def unique_existing_roots(roots: Iterable[Path], home: Optional[Path] = None) ->
             continue
         if resolved == filesystem_root:
             continue
-        if home_resolved is not None and resolved == home_resolved:
+        if home_resolved is not None and _is_same_or_parent(resolved, home_resolved):
             continue
         seen.add(resolved)
         result.append(path)
@@ -228,6 +228,7 @@ def _scan_fixed_locations(home: Path) -> Iterator[ScanTarget]:
                 cleanable=spec.cleanable,
                 delete_mode=spec.delete_mode,
                 note=spec.note,
+                safety_root=home,
             )
             if target:
                 yield target
@@ -244,6 +245,7 @@ def _scan_glob_locations(home: Path) -> Iterator[ScanTarget]:
                     cleanable=spec.cleanable,
                     delete_mode=spec.delete_mode,
                     note=spec.note,
+                    safety_root=home,
                 )
                 if target:
                     yield target
@@ -253,9 +255,10 @@ def _scan_node_modules(
     roots: Sequence[Path],
     older_than: Optional[timedelta],
     now: datetime,
+    home: Path,
 ) -> Iterator[ScanTarget]:
     cutoff = now - older_than if older_than else None
-    for root in unique_existing_roots(roots):
+    for root in unique_existing_roots(roots, home=home):
         for path in find_node_modules(root):
             modified_at = modified_time(path)
             if cutoff and modified_at and modified_at > cutoff:
@@ -267,6 +270,7 @@ def _scan_node_modules(
                 cleanable=True,
                 delete_mode="tree",
                 note="Project dependencies. Reinstall with npm, yarn, or pnpm.",
+                safety_root=root,
             )
             if target:
                 yield target
@@ -301,6 +305,7 @@ def _target_from_path(
     cleanable: bool,
     delete_mode: str,
     note: str,
+    safety_root: Optional[Path],
 ) -> Optional[ScanTarget]:
     size = path_size(path)
     modified_at = modified_time(path)
@@ -313,6 +318,7 @@ def _target_from_path(
         cleanable=cleanable,
         delete_mode=delete_mode,
         note=note,
+        safety_root=safety_root,
     )
 
 
@@ -362,6 +368,12 @@ def _safe_resolve(path: Optional[Path]) -> Optional[Path]:
         return path.expanduser().resolve()
     except OSError:
         return None
+
+
+def _is_same_or_parent(candidate: Path, path: Path) -> bool:
+    if candidate == path:
+        return True
+    return candidate in path.parents
 
 
 def _allocated_size(stat_result: os.stat_result) -> int:

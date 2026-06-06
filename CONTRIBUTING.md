@@ -24,9 +24,9 @@ This project works near developer cache directories, so changes should keep the 
 - Destructive commands must require an explicit category or action.
 - Prefer official tools such as `xcrun simctl` over deleting tool internals directly.
 - Add or update tests for every new deletion path.
+- Keep cleanup targets constrained to known cache path shapes and safety roots.
 - Keep dry-run output accurate enough that a user can see what would be affected.
 
 ## License
 
 By contributing, you agree that your contributions are licensed under the MIT License.
-

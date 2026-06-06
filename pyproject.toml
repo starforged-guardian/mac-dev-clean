@@ -12,7 +12,21 @@ license = { file = "LICENSE" }
 authors = [
   { name = "mac-dev-clean contributors" }
 ]
-keywords = ["macos", "xcode", "homebrew", "docker", "npm", "gradle", "cli", "cleanup"]
+keywords = [
+  "macos",
+  "xcode",
+  "simulator",
+  "core-simulator",
+  "homebrew",
+  "docker",
+  "npm",
+  "gradle",
+  "node-modules",
+  "disk-cleanup",
+  "developer-tools",
+  "cli",
+  "cleanup"
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -24,6 +38,11 @@ classifiers = [
   "Topic :: System :: Filesystems",
   "Topic :: Utilities"
 ]
+
+[project.urls]
+Source = "https://github.com/starforged-guardian/mac-dev-clean"
+Issues = "https://github.com/starforged-guardian/mac-dev-clean/issues"
+Changelog = "https://github.com/starforged-guardian/mac-dev-clean/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mac-dev-clean = "mac_dev_clean.cli:main"

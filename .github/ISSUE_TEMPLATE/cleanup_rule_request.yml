@@ -1,0 +1,60 @@
+name: Cleanup rule request
+description: Suggest a new cache location or cleanup category.
+title: "[Rule]: "
+labels: ["enhancement", "cleanup-rule"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        New cleanup rules need strong safety boundaries. Please include evidence that the path is cache-like and regenerable.
+  - type: input
+    id: tool
+    attributes:
+      label: Tool or ecosystem
+      placeholder: "Xcode, Android Studio, pnpm, CocoaPods, Rust, etc."
+    validations:
+      required: true
+  - type: textarea
+    id: paths
+    attributes:
+      label: Candidate path(s)
+      description: Use `~` when possible and avoid private project names.
+      render: text
+      placeholder: "~/Library/Caches/example-tool"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Why is this safe to clean?
+      description: Link official docs or explain how the files are regenerated.
+    validations:
+      required: true
+  - type: dropdown
+    id: deletion_mode
+    attributes:
+      label: Suggested cleanup mode
+      options:
+        - "Report-only first"
+        - "Contents-only cleanup"
+        - "Whole-directory cleanup"
+        - "Use an official tool command instead"
+    validations:
+      required: true
+  - type: textarea
+    id: dry_run
+    attributes:
+      label: Expected dry-run output
+      description: What should users see before anything is deleted?
+    validations:
+      required: true
+  - type: checkboxes
+    id: tests
+    attributes:
+      label: Test expectations
+      options:
+        - label: The rule should include tests for path matching and refusal cases.
+          required: true
+        - label: The rule should preserve dry-run behavior.
+          required: true
+

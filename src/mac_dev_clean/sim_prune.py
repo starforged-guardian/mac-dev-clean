@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -11,6 +12,8 @@ from .model import human_bytes
 
 
 Runner = Callable[[Sequence[str]], str]
+XCRUN = "/usr/bin/xcrun"
+SIMCTL_UDID_RE = re.compile(r"^[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$")
 
 
 @dataclass(frozen=True)
@@ -121,7 +124,7 @@ class SimctlError(RuntimeError):
 
 def run_simctl(args: Sequence[str]) -> str:
     process = subprocess.run(
-        ["xcrun", "simctl", *args],
+        [XCRUN, "simctl", *args],
         capture_output=True,
         text=True,
         check=False,
@@ -207,7 +210,7 @@ def delete_unavailable(
     dry_run: bool = False,
 ) -> ActionReport:
     targets = [device for device in inventory.devices if not device.is_available]
-    command = ["xcrun", "simctl", "delete", "unavailable"]
+    command = [XCRUN, "simctl", "delete", "unavailable"]
     stdout = "" if dry_run or not targets else runner(["delete", "unavailable"])
     return ActionReport(
         action="delete-unavailable",
@@ -236,7 +239,7 @@ def delete_runtimes(
     return ActionReport(
         action="delete-runtimes",
         dry_run=dry_run,
-        command=["xcrun", "simctl", *args],
+        command=[XCRUN, "simctl", *args],
         targets=[runtime.to_dict() for runtime in targets],
         stdout=stdout.strip(),
     )
@@ -251,7 +254,7 @@ def erase_unused(
 ) -> ActionReport:
     targets = select_unused_devices(inventory.devices, older_than=older_than, now=now)
     args = ["erase", *[device.udid for device in targets]]
-    command = ["xcrun", "simctl", *args]
+    command = [XCRUN, "simctl", *args]
     stdout = "" if dry_run or not targets else runner(args)
     return ActionReport(
         action="erase-unused",
@@ -285,6 +288,8 @@ def select_unused_devices(
     for device in devices:
         if not device.is_available or device.state.lower() == "booted":
             continue
+        if not is_safe_simctl_udid(device.udid):
+            continue
         if cutoff is None:
             if device.last_booted_at is None:
                 selected.append(device)
@@ -299,6 +304,10 @@ def age_to_days(age: timedelta) -> int:
     if seconds % 86400:
         days += 1
     return max(days, 1)
+
+
+def is_safe_simctl_udid(value: str) -> bool:
+    return bool(SIMCTL_UDID_RE.match(value))
 
 
 def parse_simctl_datetime(value: object) -> Optional[datetime]:
