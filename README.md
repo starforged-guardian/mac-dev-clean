@@ -14,6 +14,18 @@ From the repository root:
 python3 -m pip install -e .
 ```
 
+On macOS, `pip` may install the commands into your user Python scripts directory. If `mac-dev-clean` or `xcode-sim-prune` is not found after installation, add that directory to your shell path:
+
+```sh
+export PATH="$HOME/Library/Python/3.9/bin:$PATH"
+```
+
+To make that permanent for zsh:
+
+```sh
+printf '\nexport PATH="$HOME/Library/Python/3.9/bin:$PATH"\n' >> ~/.zprofile
+```
+
 Or run without installing:
 
 ```sh
