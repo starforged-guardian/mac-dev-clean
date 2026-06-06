@@ -5,6 +5,7 @@ import os
 import unittest
 
 from mac_dev_clean.cleaner import clean_target
+from mac_dev_clean.model import ScanTarget
 from mac_dev_clean.scanner import find_node_modules, scan
 
 
@@ -69,6 +70,53 @@ class ScannerCleanerTests(unittest.TestCase):
             self.assertIn("symlink", result.error)
             self.assertTrue(real_cache.exists())
 
+    def test_clean_refuses_target_without_safety_root(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            cache = home / "Library/Caches/Homebrew"
+            cache.mkdir(parents=True)
+            payload = cache / "bottle.tar.gz"
+            payload.write_bytes(b"x")
+            target = ScanTarget(
+                category="brew-cache",
+                label="Homebrew cache",
+                path=cache,
+                size_bytes=1,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="contents",
+            )
+
+            result = clean_target(target)
+
+            self.assertFalse(result.removed)
+            self.assertIn("safety root", result.error)
+            self.assertTrue(payload.exists())
+
+    def test_clean_refuses_forged_cache_category_path(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            cache = home / "Documents/NotHomebrew"
+            cache.mkdir(parents=True)
+            payload = cache / "keep.txt"
+            payload.write_text("safe")
+            target = ScanTarget(
+                category="brew-cache",
+                label="Homebrew cache",
+                path=cache,
+                size_bytes=1,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="contents",
+                safety_root=home,
+            )
+
+            result = clean_target(target)
+
+            self.assertFalse(result.removed)
+            self.assertIn("known cleanable cache location", result.error)
+            self.assertTrue(payload.exists())
+
     def test_find_node_modules_skips_nested_dependencies(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)
@@ -81,7 +129,9 @@ class ScannerCleanerTests(unittest.TestCase):
 
     def test_node_modules_older_than_filter(self):
         with TemporaryDirectory() as temp:
-            root = Path(temp)
+            home = Path(temp) / "home"
+            root = Path(temp) / "work"
+            home.mkdir()
             old_nm = root / "old-app/node_modules"
             new_nm = root / "new-app/node_modules"
             old_nm.mkdir(parents=True)
@@ -94,7 +144,7 @@ class ScannerCleanerTests(unittest.TestCase):
             os.utime(new_nm, (new_time, new_time))
 
             items = scan(
-                home=root,
+                home=home,
                 cwd=root,
                 search_roots=[root],
                 include_node_modules=True,
@@ -104,6 +154,21 @@ class ScannerCleanerTests(unittest.TestCase):
 
             paths = {item.path for item in items if item.category == "node-modules"}
             self.assertEqual(paths, {old_nm})
+
+    def test_node_modules_search_skips_home_root(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            node_modules = home / "app/node_modules"
+            node_modules.mkdir(parents=True)
+
+            items = scan(
+                home=home,
+                cwd=home,
+                search_roots=[home],
+                include_node_modules=True,
+            )
+
+            self.assertEqual([item for item in items if item.category == "node-modules"], [])
 
 
 if __name__ == "__main__":

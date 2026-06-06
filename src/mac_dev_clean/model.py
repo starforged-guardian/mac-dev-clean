@@ -16,6 +16,7 @@ class ScanTarget:
     cleanable: bool
     delete_mode: str
     note: str = ""
+    safety_root: Optional[Path] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -65,4 +66,3 @@ def human_bytes(size: int) -> str:
                 return f"{int(value)} {unit}"
             return f"{value:.1f} {unit}"
         value /= 1024
-

@@ -112,6 +112,7 @@ Docker VM data is intentionally report-only because deleting it directly can rem
 - `--node-modules` requires `--older-than`, such as `60d`.
 - Fixed cache directories use contents-only cleanup, preserving the parent directory.
 - `node_modules` cleanup removes the selected `node_modules` directory tree.
+- Cleanup targets must match known cache path shapes and stay inside their scan safety root.
 - Symlink targets are refused.
 - Docker data is report-only.
 - Use `--dry-run` before deleting to see the selected paths.
@@ -162,6 +163,7 @@ Safety notes:
 - `delete-unavailable` delegates to `xcrun simctl delete unavailable`.
 - `delete-runtimes` requires `--older-than` and delegates to `xcrun simctl runtime delete --notUsedSinceDays`.
 - `erase-unused` never erases booted devices.
+- Malformed simulator device IDs are ignored before calling `simctl erase`.
 - All destructive commands support `--dry-run` and `--json`.
 
 ## Development
