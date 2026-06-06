@@ -1,0 +1,67 @@
+name: Bug report
+description: Report incorrect scanning, reporting, or cleanup behavior.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping make mac-dev-clean safer. Please avoid sharing private project names, credentials, or sensitive local paths.
+  - type: input
+    id: version
+    attributes:
+      label: mac-dev-clean version or commit
+      description: Run `python3 -m pip show mac-dev-clean` or include the commit SHA if installed from GitHub.
+      placeholder: "0.1.0 or abc1234"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.5"
+    validations:
+      required: true
+  - type: input
+    id: xcode
+    attributes:
+      label: Xcode version
+      description: Required for simulator or Xcode cache issues.
+      placeholder: "Xcode 16.4"
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the exact command you ran. Prefer dry-run commands when possible.
+      render: shell
+      placeholder: "mac-dev-clean clean --brew-cache --dry-run"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Paste relevant output. Redact user names or private paths if needed.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Safety impact
+      description: Did this affect deletion behavior?
+      options:
+        - "Read-only scan/report issue"
+        - "Dry-run target selection issue"
+        - "Cleanup refused something safe"
+        - "Cleanup selected something unexpected"
+        - "Actual deletion problem"
+    validations:
+      required: true

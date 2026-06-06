@@ -1,14 +1,34 @@
 # mac-dev-clean
 
-`mac-dev-clean` is a small macOS CLI that finds developer caches and shows how much disk space they are using. It never deletes anything during `scan` or `report`, and `clean` requires explicit category flags before it removes files.
+[![CI](https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml/badge.svg)](https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
+[![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](README.md)
+[![Install with pipx](https://img.shields.io/badge/install-pipx-6650a4.svg)](#install)
 
-## Why
+Safe, dry-run-first cleanup tools for macOS developer disk bloat.
 
-Xcode, simulators, Homebrew, Docker Desktop, npm, Gradle, and project `node_modules` directories can quietly consume a lot of disk space. This tool gives you a quick report and safe cleanup commands for common cache locations.
+`mac-dev-clean` scans common developer cache locations and reports disk usage without deleting anything by default. `xcode-sim-prune` focuses on Xcode simulator storage using `xcrun simctl` instead of deleting simulator internals directly.
+
+## Why This Matters
+
+Xcode, simulators, Homebrew, Docker Desktop, npm, Gradle, and project `node_modules` directories can quietly consume huge amounts of disk space. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
 
 ## Install
 
-From the repository root:
+Recommended GitHub install with `pipx`:
+
+```sh
+pipx install git+https://github.com/starforged-guardian/mac-dev-clean.git
+```
+
+Install with `pip`:
+
+```sh
+python3 -m pip install git+https://github.com/starforged-guardian/mac-dev-clean.git
+```
+
+Install from a local checkout:
 
 ```sh
 python3 -m pip install -e .
@@ -30,6 +50,30 @@ Or run without installing:
 
 ```sh
 PYTHONPATH=src python3 -m mac_dev_clean scan
+```
+
+## Quick Demo
+
+Find developer cache usage:
+
+```sh
+mac-dev-clean scan
+mac-dev-clean report --json
+```
+
+Preview cleanup without deleting files:
+
+```sh
+mac-dev-clean clean --xcode-derived-data --dry-run
+mac-dev-clean clean --node-modules --older-than 60d --search-root ~/Code --dry-run
+```
+
+Inspect and prune simulator storage:
+
+```sh
+xcode-sim-prune list
+xcode-sim-prune erase-unused --dry-run
+xcode-sim-prune delete-runtimes --older-than 180d --dry-run
 ```
 
 ## Commands
