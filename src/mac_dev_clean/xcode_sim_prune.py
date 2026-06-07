@@ -106,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "interactive",
-        help="Scan safe simulator cleanup candidates and prompt before deleting them.",
+        help="Scan meaningful simulator cleanup candidates and prompt before deleting them.",
     )
 
     list_parser = subparsers.add_parser("list", help="List simulator devices and runtime disk images.")
@@ -192,7 +192,7 @@ def run_interactive() -> int:
     target_udids = [device.udid for device in candidates]
     preview = delete_devices(inventory, udids=target_udids, dry_run=True)
 
-    print("Safe simulator cleanup candidates")
+    print("Meaningful simulator cleanup candidates")
     print()
     print(render_action_report(preview))
     print()

@@ -61,6 +61,8 @@ mac-dev-clean scan
 mac-dev-clean report --json
 ```
 
+Human-readable scan output includes cleanable/report-only totals and suggested dry-run commands for the biggest quick wins.
+
 Scan cleanable cache locations and confirm deletion interactively:
 
 ```sh
@@ -236,7 +238,7 @@ Run an automatic scan and confirm safe simulator device deletion interactively:
 xcode-sim-prune
 ```
 
-By default, `xcode-sim-prune` prompts before deleting shutdown simulator devices that are unavailable to the current Xcode or have never been booted.
+By default, `xcode-sim-prune` prompts before deleting shutdown simulator devices that are unavailable to the current Xcode or at least 1 GB.
 
 List simulator devices and runtime images:
 
@@ -289,7 +291,7 @@ xcode-sim-prune erase-unused --older-than 60d --dry-run
 Safety notes:
 
 - `list` never changes anything.
-- Running `xcode-sim-prune` without arguments scans safe simulator device deletion candidates and prompts before deleting anything.
+- Running `xcode-sim-prune` without arguments scans meaningful simulator device deletion candidates and prompts before deleting anything.
 - `delete-unavailable` delegates to `xcrun simctl delete unavailable`.
 - `delete-devices` only deletes shutdown devices with safe UDIDs; names are exact matches, so `iPhone 17` does not match `iPhone 17 Pro`.
 - `delete-runtimes` requires `--older-than` and delegates to `xcrun simctl runtime delete --notUsedSinceDays`.

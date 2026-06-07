@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Sequence, Set
@@ -214,6 +215,7 @@ def add_scan_root_options(parser: argparse.ArgumentParser) -> None:
 
 def run_scan(args: argparse.Namespace) -> int:
     older_than = parse_age(args.older_than) if args.older_than else None
+    announce_scan_start(include_node_modules=not args.no_node_modules)
     items = scan(
         search_roots=args.search_root or None,
         include_node_modules=not args.no_node_modules,
@@ -233,6 +235,7 @@ def run_clean(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
     older_than = parse_age(args.older_than) if args.older_than else None
     include_node_modules = "node-modules" in selected
+    announce_scan_start(include_node_modules=include_node_modules)
     items = scan(
         search_roots=args.search_root or None,
         include_node_modules=include_node_modules,
@@ -252,6 +255,7 @@ def run_interactive(args: argparse.Namespace, parser: argparse.ArgumentParser) -
         )
 
     older_than = parse_age(args.older_than) if args.older_than else None
+    announce_scan_start(include_node_modules=args.include_node_modules)
     items = scan(
         search_roots=args.search_root or None,
         include_node_modules=args.include_node_modules,
@@ -272,6 +276,15 @@ def run_interactive(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     results = clean_targets(targets)
     print(render_clean_table(results))
     return 1 if any(result.error for result in results) else 0
+
+
+def announce_scan_start(include_node_modules: bool) -> None:
+    detail = " including project node_modules discovery" if include_node_modules else ""
+    print(
+        f"Scanning developer cache locations{detail}. This can take a moment...",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 def prompt_yes_no(message: str) -> bool:

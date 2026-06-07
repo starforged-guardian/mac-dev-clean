@@ -2,18 +2,86 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Iterable, List
+from typing import Iterable, List, Set, Tuple
 
 from .model import CleanResult, ScanTarget, human_bytes
 
 
+SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
+    (
+        "Xcode DeviceSupport",
+        {"xcode-device-support"},
+        "mac-dev-clean clean --xcode-device-support --dry-run",
+    ),
+    (
+        "Xcode build artifacts",
+        {"xcode-derived-data", "xcode-module-cache"},
+        "mac-dev-clean clean --xcode-derived-data --dry-run",
+    ),
+    (
+        "Xcode documentation cache",
+        {"xcode-documentation-cache"},
+        "mac-dev-clean clean --xcode-documentation-cache --dry-run",
+    ),
+    (
+        "simulator caches",
+        {"simulator-caches"},
+        "mac-dev-clean clean --simulator-caches --dry-run",
+    ),
+    (
+        "Homebrew cache",
+        {"brew-cache"},
+        "mac-dev-clean clean --brew-cache --dry-run",
+    ),
+    (
+        "package and tool caches",
+        {
+            "npm-cache",
+            "pnpm-cache",
+            "node-tool-cache",
+            "python-cache",
+            "swiftpm-cache",
+            "go-cache",
+            "rust-cache",
+            "gradle-cache",
+        },
+        "mac-dev-clean clean --package-caches --dry-run",
+    ),
+    (
+        "browser caches",
+        {"browser-cache"},
+        "mac-dev-clean clean --browser-caches --dry-run",
+    ),
+    (
+        "old node_modules",
+        {"node-modules"},
+        "mac-dev-clean clean --node-modules --older-than 60d --dry-run",
+    ),
+)
+
+
 def scan_report_json(items: Iterable[ScanTarget]) -> str:
     targets = list(items)
+    cleanable_total = sum(item.size_bytes for item in targets if item.cleanable)
+    report_only_total = sum(item.size_bytes for item in targets if not item.cleanable)
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_bytes": sum(item.size_bytes for item in targets),
         "total": human_bytes(sum(item.size_bytes for item in targets)),
+        "cleanable_total_bytes": cleanable_total,
+        "cleanable_total": human_bytes(cleanable_total),
+        "report_only_total_bytes": report_only_total,
+        "report_only_total": human_bytes(report_only_total),
         "count": len(targets),
+        "recommendations": [
+            {
+                "label": label,
+                "size_bytes": size,
+                "size": human_bytes(size),
+                "command": command,
+            }
+            for size, label, command in _quick_wins(targets)
+        ],
         "items": [item.to_dict() for item in targets],
     }
     return json.dumps(payload, indent=2, sort_keys=True)
@@ -49,7 +117,12 @@ def render_scan_table(items: Iterable[ScanTarget]) -> str:
     ]
     body = _render_table(["Category", "Size", "Modified", "Cleanable", "Path"], rows)
     total = human_bytes(sum(item.size_bytes for item in targets))
-    return f"{body}\n\nTotal: {total} across {len(targets)} item(s)"
+    summary = _render_scan_summary(targets, total)
+    quick_wins = _render_quick_wins(targets)
+    sections = [body, summary]
+    if quick_wins:
+        sections.append(quick_wins)
+    return "\n\n".join(sections)
 
 
 def render_clean_table(results: Iterable[CleanResult]) -> str:
@@ -96,8 +169,45 @@ def _render_table(headers: List[str], rows: List[List[str]]) -> str:
     return "\n".join(lines)
 
 
+def _render_scan_summary(targets: List[ScanTarget], total: str) -> str:
+    cleanable_total = sum(item.size_bytes for item in targets if item.cleanable)
+    report_only_total = sum(item.size_bytes for item in targets if not item.cleanable)
+    lines = [f"Total: {total} across {len(targets)} item(s)"]
+    lines.append(
+        "Potential cleanup: "
+        f"{human_bytes(cleanable_total)} cleanable"
+        f" | {human_bytes(report_only_total)} report-only"
+    )
+    return "\n".join(lines)
+
+
+def _render_quick_wins(targets: List[ScanTarget]) -> str:
+    wins = _quick_wins(targets)
+    if not wins:
+        return ""
+
+    lines = ["Quick wins:"]
+    for size, label, command in wins:
+        lines.append(f"- {human_bytes(size)} {label}: {command}")
+    lines.append("Review the dry run, then rerun without --dry-run to delete.")
+    return "\n".join(lines)
+
+
+def _quick_wins(targets: List[ScanTarget]) -> List[Tuple[int, str, str]]:
+    wins: List[Tuple[int, str, str]] = []
+    for label, categories, command in SCAN_RECOMMENDATIONS:
+        size = sum(
+            item.size_bytes
+            for item in targets
+            if item.cleanable and item.category in categories
+        )
+        if size:
+            wins.append((size, label, command))
+
+    return sorted(wins, reverse=True)[:3]
+
+
 def _format_modified(item: ScanTarget) -> str:
     if item.modified_at is None:
         return "unknown"
     return item.modified_at.astimezone(timezone.utc).strftime("%Y-%m-%d")
-

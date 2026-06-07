@@ -160,12 +160,19 @@ class SimPruneTests(unittest.TestCase):
 
         self.assertEqual([device.udid for device in selected], [NEVER_UDID, OLD_UDID])
 
-    def test_default_delete_devices_include_unavailable_and_never_booted_only(self):
+    def test_default_delete_devices_skip_tiny_never_booted_devices(self):
         devices = parse_devices_json(DEVICES_JSON)
 
         selected = select_default_delete_devices(devices)
 
-        self.assertEqual([device.udid for device in selected], [NEVER_UDID, UNAVAILABLE_UDID])
+        self.assertEqual([device.udid for device in selected], [UNAVAILABLE_UDID])
+
+    def test_default_delete_devices_include_large_shutdown_devices(self):
+        devices = parse_devices_json(DEVICES_JSON)
+
+        selected = select_default_delete_devices(devices, min_size_bytes=25)
+
+        self.assertEqual([device.udid for device in selected], [NEVER_UDID, OLD_UDID, UNAVAILABLE_UDID])
 
     def test_delete_unavailable_dry_run_does_not_call_runner(self):
         inventory = Inventory(devices=parse_devices_json(DEVICES_JSON), runtimes=[])
