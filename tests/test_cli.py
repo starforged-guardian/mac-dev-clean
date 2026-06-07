@@ -114,6 +114,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("interactive --include-node-modules requires --older-than", stderr.getvalue())
 
+    def test_package_caches_flag_selects_dependency_cache_targets(self):
+        target = ScanTarget(
+            category="pnpm-cache",
+            label="pnpm store",
+            path=Path("/tmp/home/Library/pnpm/store"),
+            size_bytes=1,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="contents",
+            safety_root=Path("/tmp/home"),
+        )
+        stdout = io.StringIO()
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch("mac_dev_clean.cli.scan", return_value=[target]))
+            clean_targets = stack.enter_context(
+                patch("mac_dev_clean.cli.clean_targets", return_value=[])
+            )
+            stack.enter_context(contextlib.redirect_stdout(stdout))
+            code = main(["clean", "--package-caches", "--dry-run"])
+
+        self.assertEqual(code, 0)
+        clean_targets.assert_called_once_with([target], dry_run=True)
+
 
 if __name__ == "__main__":
     unittest.main()
