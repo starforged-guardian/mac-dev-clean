@@ -30,6 +30,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return run_scan(args)
         if args.command == "clean":
             return run_clean(args, parser)
+        if args.command in {None, "interactive"}:
+            return run_interactive(args, parser)
     except ValueError as exc:
         parser.error(str(exc))
     return 1
@@ -40,7 +42,13 @@ def build_parser() -> argparse.ArgumentParser:
         prog="mac-dev-clean",
         description="Safely scan and clean common macOS developer caches.",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.set_defaults(
+        command="interactive",
+        search_root=[],
+        include_node_modules=False,
+        older_than=None,
+    )
+    subparsers = parser.add_subparsers(dest="command")
 
     scan_parser = subparsers.add_parser(
         "scan",
@@ -89,6 +97,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show what would be removed without deleting files.",
     )
     clean_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    interactive_parser = subparsers.add_parser(
+        "interactive",
+        help="Scan cleanable cache locations and prompt before deleting them.",
+    )
+    add_scan_root_options(interactive_parser)
+    interactive_parser.add_argument(
+        "--include-node-modules",
+        action="store_true",
+        help="Also include discovered node_modules directories. Requires --older-than.",
+    )
+    interactive_parser.add_argument(
+        "--older-than",
+        help="Only include node_modules older than this age, such as 60d or 2w.",
+    )
 
     report_parser = subparsers.add_parser(
         "report",
@@ -147,6 +170,49 @@ def run_clean(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     results = clean_targets(targets, dry_run=args.dry_run)
     print(clean_report_json(results) if args.json else render_clean_table(results))
     return 1 if any(result.error for result in results) else 0
+
+
+def run_interactive(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.include_node_modules and not args.older_than:
+        parser.error(
+            "interactive --include-node-modules requires --older-than, for example --older-than 60d"
+        )
+
+    older_than = parse_age(args.older_than) if args.older_than else None
+    items = scan(
+        search_roots=args.search_root or None,
+        include_node_modules=args.include_node_modules,
+        node_modules_older_than=older_than,
+        now=datetime.now(timezone.utc),
+    )
+    targets = [item for item in items if item.cleanable]
+    if not targets:
+        print("No cleanable developer cache locations found.")
+        return 0
+
+    print(render_scan_table(targets))
+    print()
+    if not prompt_yes_no("Delete these cleanable items? [y/N] "):
+        print("Canceled. Nothing deleted.")
+        return 0
+
+    results = clean_targets(targets)
+    print(render_clean_table(results))
+    return 1 if any(result.error for result in results) else 0
+
+
+def prompt_yes_no(message: str) -> bool:
+    while True:
+        try:
+            response = input(message)
+        except EOFError:
+            return False
+        normalized = response.strip().lower()
+        if normalized in {"y", "yes"}:
+            return True
+        if normalized in {"", "n", "no"}:
+            return False
+        print("Please answer y or n.")
 
 
 def selected_categories(args: argparse.Namespace) -> Set[str]:

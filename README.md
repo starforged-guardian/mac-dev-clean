@@ -61,6 +61,12 @@ mac-dev-clean scan
 mac-dev-clean report --json
 ```
 
+Scan cleanable cache locations and confirm deletion interactively:
+
+```sh
+mac-dev-clean
+```
+
 Preview cleanup without deleting files:
 
 ```sh
@@ -88,6 +94,18 @@ Print the same report as JSON:
 
 ```sh
 mac-dev-clean report --json
+```
+
+Scan cleanable cache locations and delete them after a `y/N` prompt:
+
+```sh
+mac-dev-clean
+```
+
+Include old `node_modules` directories in the interactive scan:
+
+```sh
+mac-dev-clean interactive --include-node-modules --older-than 60d --search-root ~/Code
 ```
 
 Preview cleaning Xcode build artifacts:
@@ -152,6 +170,8 @@ Docker VM data is intentionally report-only because deleting it directly can rem
 ## Safety Model
 
 - `scan` and `report` never delete files.
+- Running `mac-dev-clean` without arguments scans cleanable cache locations and prompts before deleting anything.
+- `interactive --include-node-modules` requires `--older-than`, such as `60d`.
 - `clean` fails unless you pass at least one explicit category flag.
 - `--node-modules` requires `--older-than`, such as `60d`.
 - Fixed cache directories use contents-only cleanup, preserving the parent directory.
