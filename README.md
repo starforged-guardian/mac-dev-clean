@@ -1,12 +1,20 @@
-# mac-dev-clean
+<p align="center">
+  <img src="assets/mac-dev-clean-logo.png" alt="mac-dev-clean raven logo" width="240">
+</p>
 
-[![CI](https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml/badge.svg)](https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
-[![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](README.md)
-[![Install with pipx](https://img.shields.io/badge/install-pipx-6650a4.svg)](#install)
+<h1 align="center">mac-dev-clean</h1>
 
-Safe, dry-run-first cleanup tools for macOS developer disk bloat.
+<p align="center">
+  <strong>Safe, dry-run-first cleanup tools for macOS developer disk bloat.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml"><img src="https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.9%2B-blue.svg" alt="Python 3.9+"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/platform-macOS-lightgrey.svg" alt="macOS"></a>
+  <a href="#install"><img src="https://img.shields.io/badge/install-pipx-6650a4.svg" alt="Install with pipx"></a>
+</p>
 
 `mac-dev-clean` scans common developer cache locations and reports disk usage without deleting anything by default. `xcode-sim-prune` focuses on Xcode simulator storage using `xcrun simctl` instead of deleting simulator internals directly.
 
