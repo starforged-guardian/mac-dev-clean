@@ -28,13 +28,35 @@ class CliTests(unittest.TestCase):
 
     def test_report_json_outputs_valid_json(self):
         stdout = io.StringIO()
-        with patch("mac_dev_clean.cli.scan", return_value=[]), contextlib.redirect_stdout(stdout):
+        stderr = io.StringIO()
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch("mac_dev_clean.cli.scan", return_value=[]))
+            stack.enter_context(contextlib.redirect_stdout(stdout))
+            stack.enter_context(contextlib.redirect_stderr(stderr))
             code = main(["report", "--json", "--no-node-modules"])
 
         self.assertEqual(code, 0)
         payload = json.loads(stdout.getvalue())
         self.assertIn("items", payload)
         self.assertIn("total_bytes", payload)
+        self.assertIn("Scanning developer cache locations", stderr.getvalue())
+
+    def test_scan_announces_before_scanning(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        def fake_scan(**_kwargs):
+            self.assertIn("Scanning developer cache locations", stderr.getvalue())
+            return []
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch("mac_dev_clean.cli.scan", side_effect=fake_scan))
+            stack.enter_context(contextlib.redirect_stdout(stdout))
+            stack.enter_context(contextlib.redirect_stderr(stderr))
+            code = main(["scan", "--no-node-modules"])
+
+        self.assertEqual(code, 0)
+        self.assertIn("No supported developer cache locations found.", stdout.getvalue())
 
     def test_default_command_cancel_does_not_clean(self):
         target = ScanTarget(
@@ -48,17 +70,20 @@ class CliTests(unittest.TestCase):
             safety_root=Path("/tmp/home"),
         )
         stdout = io.StringIO()
+        stderr = io.StringIO()
 
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch("mac_dev_clean.cli.scan", return_value=[target]))
             clean_targets = stack.enter_context(patch("mac_dev_clean.cli.clean_targets"))
             stack.enter_context(patch("builtins.input", return_value="n"))
             stack.enter_context(contextlib.redirect_stdout(stdout))
+            stack.enter_context(contextlib.redirect_stderr(stderr))
             code = main([])
 
         self.assertEqual(code, 0)
         clean_targets.assert_not_called()
         self.assertIn("Canceled. Nothing deleted.", stdout.getvalue())
+        self.assertIn("Scanning developer cache locations", stderr.getvalue())
 
     def test_interactive_yes_cleans_cleanable_targets(self):
         cleanable = ScanTarget(
@@ -90,6 +115,7 @@ class CliTests(unittest.TestCase):
             removed=True,
         )
         stdout = io.StringIO()
+        stderr = io.StringIO()
 
         with contextlib.ExitStack() as stack:
             stack.enter_context(
@@ -100,6 +126,7 @@ class CliTests(unittest.TestCase):
             )
             stack.enter_context(patch("builtins.input", return_value="y"))
             stack.enter_context(contextlib.redirect_stdout(stdout))
+            stack.enter_context(contextlib.redirect_stderr(stderr))
             code = main(["interactive"])
 
         self.assertEqual(code, 0)
@@ -126,6 +153,7 @@ class CliTests(unittest.TestCase):
             safety_root=Path("/tmp/home"),
         )
         stdout = io.StringIO()
+        stderr = io.StringIO()
 
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch("mac_dev_clean.cli.scan", return_value=[target]))
@@ -133,10 +161,12 @@ class CliTests(unittest.TestCase):
                 patch("mac_dev_clean.cli.clean_targets", return_value=[])
             )
             stack.enter_context(contextlib.redirect_stdout(stdout))
+            stack.enter_context(contextlib.redirect_stderr(stderr))
             code = main(["clean", "--package-caches", "--dry-run"])
 
         self.assertEqual(code, 0)
         clean_targets.assert_called_once_with([target], dry_run=True)
+        self.assertIn("Scanning developer cache locations", stderr.getvalue())
 
 
 if __name__ == "__main__":

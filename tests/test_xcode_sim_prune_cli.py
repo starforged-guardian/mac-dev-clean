@@ -36,7 +36,7 @@ class XcodeSimPruneCliTests(unittest.TestCase):
             state="Shutdown",
             is_available=True,
             last_booted_at=None,
-            data_size_bytes=100,
+            data_size_bytes=2 * 1024 * 1024 * 1024,
             log_size_bytes=0,
         )
         preview = ActionReport(

@@ -14,6 +14,7 @@ from .model import human_bytes
 Runner = Callable[[Sequence[str]], str]
 XCRUN = "/usr/bin/xcrun"
 SIMCTL_UDID_RE = re.compile(r"^[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$")
+MIN_DEFAULT_DEVICE_CLEANUP_SIZE_BYTES = 1024 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -328,7 +329,10 @@ def select_unused_devices(
     return selected
 
 
-def select_default_delete_devices(devices: Iterable[Device]) -> List[Device]:
+def select_default_delete_devices(
+    devices: Iterable[Device],
+    min_size_bytes: int = MIN_DEFAULT_DEVICE_CLEANUP_SIZE_BYTES,
+) -> List[Device]:
     selected: List[Device] = []
     seen_udids: set[str] = set()
     for device in devices:
@@ -339,7 +343,7 @@ def select_default_delete_devices(devices: Iterable[Device]) -> List[Device]:
             continue
         if device.state.lower() != "shutdown":
             continue
-        if not device.is_available or device.last_booted_at is None:
+        if not device.is_available or device.total_size_bytes >= min_size_bytes:
             selected.append(device)
             seen_udids.add(normalized_udid)
     return selected

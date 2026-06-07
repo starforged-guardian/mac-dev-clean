@@ -2,12 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.3.0 - 2026-06-07
+## 0.4.0 - 2026-06-07
 
 - Skipped cleanable scan targets under 1 MiB to avoid recommending no-op cleanup for tiny cache directories.
 - Added cleanup support for Xcode documentation and DeviceSupport caches, pnpm and other package/tool caches, browser caches, plus report-only surfacing for Xcode Archives and Codex runtime caches.
 - Added `xcode-sim-prune delete-devices` for dry-run-first deletion of selected shutdown simulator devices by exact name or UDID.
 - Made `xcode-sim-prune` without arguments scan safe simulator device cleanup candidates and prompt before deleting anything.
+- Updated the no-argument `xcode-sim-prune` scan to prioritize meaningful wins by skipping tiny never-booted devices and including shutdown devices that are at least 1 GB.
+- Added an immediate `mac-dev-clean` scan progress message so slow disk usage scans do not leave users staring at a silent terminal.
+- Added cleanable/report-only scan totals and top dry-run command suggestions to human and JSON scan output.
 
 ## 0.1.0 - 2026-06-06
 
