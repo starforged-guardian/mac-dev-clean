@@ -5,6 +5,7 @@ import unittest
 from mac_dev_clean.sim_prune import (
     Inventory,
     RuntimeImage,
+    delete_devices,
     age_to_days,
     delete_runtimes,
     delete_unavailable,
@@ -12,6 +13,8 @@ from mac_dev_clean.sim_prune import (
     parse_devices_json,
     parse_runtime_images_json,
     is_safe_simctl_udid,
+    select_default_delete_devices,
+    select_devices_for_delete,
     select_unused_devices,
 )
 
@@ -19,6 +22,8 @@ BOOTED_UDID = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
 NEVER_UDID = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
 OLD_UDID = "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC"
 UNAVAILABLE_UDID = "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD"
+IPHONE_17_UDID = "EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE"
+IPHONE_17_PRO_UDID = "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"
 
 DEVICES_JSON = json.dumps(
     {
@@ -98,6 +103,40 @@ RUNTIMES_JSON = json.dumps(
 )
 
 
+NAMED_DEVICES_JSON = json.dumps(
+    {
+        "devices": {
+            "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
+                {
+                    "name": "iPhone 17",
+                    "udid": IPHONE_17_UDID,
+                    "state": "Shutdown",
+                    "isAvailable": True,
+                    "lastBootedAt": "2026-06-06T18:53:25Z",
+                    "dataPathSize": 100,
+                },
+                {
+                    "name": "iPhone 17 Pro",
+                    "udid": IPHONE_17_PRO_UDID,
+                    "state": "Shutdown",
+                    "isAvailable": True,
+                    "lastBootedAt": "2026-06-06T14:32:59Z",
+                    "dataPathSize": 90,
+                },
+                {
+                    "name": "iPad Air 11-inch (M4)",
+                    "udid": BOOTED_UDID,
+                    "state": "Booted",
+                    "isAvailable": True,
+                    "lastBootedAt": "2026-06-06T12:00:00Z",
+                    "dataPathSize": 80,
+                },
+            ]
+        }
+    }
+)
+
+
 class SimPruneTests(unittest.TestCase):
     def test_parse_devices_json_flattens_runtime_groups(self):
         devices = parse_devices_json(DEVICES_JSON)
@@ -120,6 +159,13 @@ class SimPruneTests(unittest.TestCase):
         selected = select_unused_devices(devices, older_than=timedelta(days=180), now=now)
 
         self.assertEqual([device.udid for device in selected], [NEVER_UDID, OLD_UDID])
+
+    def test_default_delete_devices_include_unavailable_and_never_booted_only(self):
+        devices = parse_devices_json(DEVICES_JSON)
+
+        selected = select_default_delete_devices(devices)
+
+        self.assertEqual([device.udid for device in selected], [NEVER_UDID, UNAVAILABLE_UDID])
 
     def test_delete_unavailable_dry_run_does_not_call_runner(self):
         inventory = Inventory(devices=parse_devices_json(DEVICES_JSON), runtimes=[])
@@ -169,6 +215,37 @@ class SimPruneTests(unittest.TestCase):
 
         self.assertEqual(calls, [["erase", NEVER_UDID]])
         self.assertEqual([target["udid"] for target in report.targets], [NEVER_UDID])
+
+    def test_select_devices_for_delete_matches_exact_names(self):
+        devices = parse_devices_json(NAMED_DEVICES_JSON)
+
+        selected = select_devices_for_delete(devices, names=["iphone 17"])
+
+        self.assertEqual([device.udid for device in selected], [IPHONE_17_UDID])
+
+    def test_select_devices_for_delete_can_keep_specific_names(self):
+        devices = parse_devices_json(NAMED_DEVICES_JSON)
+
+        selected = select_devices_for_delete(
+            devices,
+            all_shutdown=True,
+            keep_names=["iPhone 17 Pro"],
+        )
+
+        self.assertEqual([device.udid for device in selected], [IPHONE_17_UDID])
+
+    def test_delete_devices_dry_run_uses_simctl_delete_udids(self):
+        inventory = Inventory(devices=parse_devices_json(NAMED_DEVICES_JSON), runtimes=[])
+
+        report = delete_devices(
+            inventory,
+            names=["iPhone 17"],
+            runner=lambda _args: self.fail("runner called"),
+            dry_run=True,
+        )
+
+        self.assertEqual(report.command, ["/usr/bin/xcrun", "simctl", "delete", IPHONE_17_UDID])
+        self.assertEqual([target["udid"] for target in report.targets], [IPHONE_17_UDID])
 
     def test_age_to_days_rounds_up_partial_days(self):
         self.assertEqual(age_to_days(timedelta(hours=12)), 1)

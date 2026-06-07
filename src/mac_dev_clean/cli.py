@@ -13,10 +13,29 @@ from .scanner import scan
 
 FLAG_TO_CATEGORIES = {
     "xcode_derived_data": {"xcode-derived-data", "xcode-module-cache"},
+    "xcode_documentation_cache": {"xcode-documentation-cache"},
+    "xcode_device_support": {"xcode-device-support"},
     "simulator_caches": {"simulator-caches"},
     "brew_cache": {"brew-cache"},
     "npm_cache": {"npm-cache"},
+    "pnpm_cache": {"pnpm-cache"},
+    "node_tool_caches": {"node-tool-cache"},
+    "python_caches": {"python-cache"},
+    "swiftpm_cache": {"swiftpm-cache"},
+    "go_cache": {"go-cache"},
+    "rust_cache": {"rust-cache"},
     "gradle_cache": {"gradle-cache"},
+    "package_caches": {
+        "npm-cache",
+        "pnpm-cache",
+        "node-tool-cache",
+        "python-cache",
+        "swiftpm-cache",
+        "go-cache",
+        "rust-cache",
+        "gradle-cache",
+    },
+    "browser_caches": {"browser-cache"},
     "node_modules": {"node-modules"},
 }
 
@@ -67,6 +86,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Clean Xcode DerivedData and module cache.",
     )
     clean_parser.add_argument(
+        "--xcode-documentation-cache",
+        action="store_true",
+        help="Clean Xcode's documentation cache.",
+    )
+    clean_parser.add_argument(
+        "--xcode-device-support",
+        action="store_true",
+        help="Clean Xcode DeviceSupport symbols and files recreated by Xcode.",
+    )
+    clean_parser.add_argument(
         "--simulator-caches",
         action="store_true",
         help="Clean CoreSimulator caches and logs.",
@@ -76,11 +105,55 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Clean Homebrew's cache directory.",
     )
-    clean_parser.add_argument("--npm-cache", action="store_true", help="Clean npm cache and logs.")
+    clean_parser.add_argument(
+        "--npm-cache",
+        action="store_true",
+        help="Clean npm cache and logs.",
+    )
+    clean_parser.add_argument(
+        "--pnpm-cache",
+        action="store_true",
+        help="Clean pnpm store and cache.",
+    )
+    clean_parser.add_argument(
+        "--node-tool-caches",
+        action="store_true",
+        help="Clean node-gyp, TypeScript, and Bun caches.",
+    )
+    clean_parser.add_argument(
+        "--python-caches",
+        action="store_true",
+        help="Clean pip and Poetry caches.",
+    )
+    clean_parser.add_argument(
+        "--swiftpm-cache",
+        action="store_true",
+        help="Clean Swift Package Manager caches.",
+    )
+    clean_parser.add_argument(
+        "--go-cache",
+        action="store_true",
+        help="Clean Go build and module caches.",
+    )
+    clean_parser.add_argument(
+        "--rust-cache",
+        action="store_true",
+        help="Clean Cargo registry and git dependency caches.",
+    )
     clean_parser.add_argument(
         "--gradle-cache",
         action="store_true",
         help="Clean Gradle caches, daemons, and wrapper distributions.",
+    )
+    clean_parser.add_argument(
+        "--package-caches",
+        action="store_true",
+        help="Clean npm, pnpm, node tooling, Python, SwiftPM, Go, Rust, and Gradle caches.",
+    )
+    clean_parser.add_argument(
+        "--browser-caches",
+        action="store_true",
+        help="Clean supported browser cache directories.",
     )
     clean_parser.add_argument(
         "--node-modules",

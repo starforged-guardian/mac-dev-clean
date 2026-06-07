@@ -14,26 +14,74 @@ DANGEROUS_NAMES = {"", ".", ".."}
 CATEGORY_DELETE_MODES = {
     "xcode-derived-data": "contents",
     "xcode-module-cache": "contents",
+    "xcode-documentation-cache": "contents",
+    "xcode-device-support": "contents",
     "simulator-caches": "contents",
     "brew-cache": "contents",
     "npm-cache": "contents",
+    "pnpm-cache": "contents",
+    "node-tool-cache": "contents",
+    "python-cache": "contents",
+    "swiftpm-cache": "contents",
+    "go-cache": "contents",
+    "rust-cache": "contents",
     "gradle-cache": "contents",
+    "browser-cache": "contents",
     "node-modules": "tree",
 }
 
 FIXED_CATEGORY_SUFFIXES = {
     "xcode-derived-data": (("Library", "Developer", "Xcode", "DerivedData"),),
     "xcode-module-cache": (("Library", "Developer", "Xcode", "ModuleCache.noindex"),),
+    "xcode-documentation-cache": (
+        ("Library", "Developer", "Xcode", "DocumentationCache"),
+    ),
+    "xcode-device-support": (
+        ("Library", "Developer", "Xcode", "iOS DeviceSupport"),
+        ("Library", "Developer", "Xcode", "tvOS DeviceSupport"),
+        ("Library", "Developer", "Xcode", "watchOS DeviceSupport"),
+        ("Library", "Developer", "Xcode", "visionOS DeviceSupport"),
+    ),
     "simulator-caches": (
         ("Library", "Developer", "CoreSimulator", "Caches"),
         ("Library", "Logs", "CoreSimulator"),
     ),
     "brew-cache": (("Library", "Caches", "Homebrew"),),
     "npm-cache": ((".npm", "_cacache"), (".npm", "_logs")),
+    "pnpm-cache": (
+        ("Library", "pnpm", "store"),
+        ("Library", "Caches", "pnpm"),
+    ),
+    "node-tool-cache": (
+        ("Library", "Caches", "node-gyp"),
+        ("Library", "Caches", "typescript"),
+        ("Library", "Caches", "bun"),
+    ),
+    "python-cache": (
+        ("Library", "Caches", "pip"),
+        (".cache", "pip"),
+        ("Library", "Caches", "pypoetry"),
+        (".cache", "pypoetry"),
+    ),
+    "swiftpm-cache": (("Library", "Caches", "org.swift.swiftpm"),),
+    "go-cache": (
+        ("Library", "Caches", "go-build"),
+        ("go", "pkg", "mod"),
+    ),
+    "rust-cache": (
+        (".cargo", "registry"),
+        (".cargo", "git"),
+    ),
     "gradle-cache": (
         (".gradle", "caches"),
         (".gradle", "daemon"),
         (".gradle", "wrapper", "dists"),
+    ),
+    "browser-cache": (
+        ("Library", "Caches", "Google"),
+        ("Library", "Caches", "BraveSoftware"),
+        ("Library", "Caches", "Firefox"),
+        ("Library", "Caches", "com.apple.Safari"),
     ),
 }
 

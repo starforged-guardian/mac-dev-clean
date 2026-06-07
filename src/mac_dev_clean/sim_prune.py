@@ -265,6 +265,36 @@ def erase_unused(
     )
 
 
+def delete_devices(
+    inventory: Inventory,
+    names: Sequence[str] = (),
+    udids: Sequence[str] = (),
+    all_shutdown: bool = False,
+    keep_names: Sequence[str] = (),
+    keep_udids: Sequence[str] = (),
+    runner: Runner = run_simctl,
+    dry_run: bool = False,
+) -> ActionReport:
+    targets = select_devices_for_delete(
+        inventory.devices,
+        names=names,
+        udids=udids,
+        all_shutdown=all_shutdown,
+        keep_names=keep_names,
+        keep_udids=keep_udids,
+    )
+    args = ["delete", *[device.udid for device in targets]]
+    command = [XCRUN, "simctl", *args]
+    stdout = "" if dry_run or not targets else runner(args)
+    return ActionReport(
+        action="delete-devices",
+        dry_run=dry_run,
+        command=command,
+        targets=[device.to_dict() for device in targets],
+        stdout=stdout.strip(),
+    )
+
+
 def select_old_runtimes(
     runtimes: Iterable[RuntimeImage],
     older_than: timedelta,
@@ -298,6 +328,64 @@ def select_unused_devices(
     return selected
 
 
+def select_default_delete_devices(devices: Iterable[Device]) -> List[Device]:
+    selected: List[Device] = []
+    seen_udids: set[str] = set()
+    for device in devices:
+        normalized_udid = device.udid.upper()
+        if normalized_udid in seen_udids:
+            continue
+        if not is_safe_simctl_udid(device.udid):
+            continue
+        if device.state.lower() != "shutdown":
+            continue
+        if not device.is_available or device.last_booted_at is None:
+            selected.append(device)
+            seen_udids.add(normalized_udid)
+    return selected
+
+
+def select_devices_for_delete(
+    devices: Iterable[Device],
+    names: Sequence[str] = (),
+    udids: Sequence[str] = (),
+    all_shutdown: bool = False,
+    keep_names: Sequence[str] = (),
+    keep_udids: Sequence[str] = (),
+) -> List[Device]:
+    wanted_names = _normalized_name_set(names)
+    wanted_udids = _normalized_udid_set(udids)
+    kept_names = _normalized_name_set(keep_names)
+    kept_udids = _normalized_udid_set(keep_udids)
+
+    if not all_shutdown and not wanted_names and not wanted_udids:
+        raise ValueError("delete-devices requires --name, --udid, or --all-shutdown")
+
+    selected: List[Device] = []
+    seen_udids: set[str] = set()
+    for device in devices:
+        normalized_device_udid = device.udid.upper()
+        if normalized_device_udid in seen_udids:
+            continue
+        if not is_safe_simctl_udid(device.udid):
+            continue
+        if device.state.lower() != "shutdown":
+            continue
+        if _normalized_device_name(device.name) in kept_names:
+            continue
+        if normalized_device_udid in kept_udids:
+            continue
+        if (
+            all_shutdown
+            or _normalized_device_name(device.name) in wanted_names
+            or normalized_device_udid in wanted_udids
+        ):
+            selected.append(device)
+            seen_udids.add(normalized_device_udid)
+
+    return selected
+
+
 def age_to_days(age: timedelta) -> int:
     seconds = age.total_seconds()
     days = int(seconds // 86400)
@@ -308,6 +396,22 @@ def age_to_days(age: timedelta) -> int:
 
 def is_safe_simctl_udid(value: str) -> bool:
     return bool(SIMCTL_UDID_RE.match(value))
+
+
+def _normalized_name_set(values: Sequence[str]) -> set[str]:
+    return {_normalized_device_name(value) for value in values if value.strip()}
+
+
+def _normalized_device_name(value: str) -> str:
+    return value.strip().casefold()
+
+
+def _normalized_udid_set(values: Sequence[str]) -> set[str]:
+    normalized = {value.strip().upper() for value in values if value.strip()}
+    unsafe = sorted(value for value in normalized if not is_safe_simctl_udid(value))
+    if unsafe:
+        raise ValueError(f"unsafe simulator UDID: {unsafe[0]}")
+    return normalized
 
 
 def parse_simctl_datetime(value: object) -> Optional[datetime]:

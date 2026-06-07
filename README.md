@@ -12,7 +12,7 @@ Safe, dry-run-first cleanup tools for macOS developer disk bloat.
 
 ## Why This Matters
 
-Xcode, simulators, Homebrew, Docker Desktop, npm, Gradle, and project `node_modules` directories can quietly consume huge amounts of disk space. That hurts more now that Mac storage upgrades are expensive and many developers are still working on 256GB MacBooks or base-model machines with little room for simulator runtimes, build artifacts, and dependency caches. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
+Xcode, simulators, Homebrew, Docker Desktop, npm, pnpm, Gradle, browser caches, and project `node_modules` directories can quietly consume huge amounts of disk space. That hurts more now that Mac storage upgrades are expensive and many developers are still working on 256GB MacBooks or base-model machines with little room for simulator runtimes, build artifacts, and dependency caches. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
 
 ## Install
 
@@ -71,12 +71,15 @@ Preview cleanup without deleting files:
 
 ```sh
 mac-dev-clean clean --xcode-derived-data --dry-run
+mac-dev-clean clean --xcode-device-support --dry-run
+mac-dev-clean clean --package-caches --browser-caches --dry-run
 mac-dev-clean clean --node-modules --older-than 60d --search-root ~/Code --dry-run
 ```
 
 Inspect and prune simulator storage:
 
 ```sh
+xcode-sim-prune
 xcode-sim-prune list
 xcode-sim-prune erase-unused --dry-run
 xcode-sim-prune delete-runtimes --older-than 180d --dry-run
@@ -120,6 +123,19 @@ Clean Xcode DerivedData and module cache:
 mac-dev-clean clean --xcode-derived-data
 ```
 
+Clean Xcode documentation cache:
+
+```sh
+mac-dev-clean clean --xcode-documentation-cache
+```
+
+Clean Xcode DeviceSupport files:
+
+```sh
+mac-dev-clean clean --xcode-device-support --dry-run
+mac-dev-clean clean --xcode-device-support
+```
+
 Clean simulator caches and logs:
 
 ```sh
@@ -139,6 +155,20 @@ mac-dev-clean clean --node-modules --older-than 60d --dry-run
 mac-dev-clean clean --node-modules --older-than 60d
 ```
 
+Clean dependency and tool caches:
+
+```sh
+mac-dev-clean clean --package-caches --dry-run
+mac-dev-clean clean --package-caches
+```
+
+Clean supported browser caches:
+
+```sh
+mac-dev-clean clean --browser-caches --dry-run
+mac-dev-clean clean --browser-caches
+```
+
 Search specific roots for `node_modules`:
 
 ```sh
@@ -152,18 +182,29 @@ Cleanable locations:
 
 - Xcode DerivedData: `~/Library/Developer/Xcode/DerivedData`
 - Xcode module cache: `~/Library/Developer/Xcode/ModuleCache.noindex`
+- Xcode documentation cache: `~/Library/Developer/Xcode/DocumentationCache`
+- Xcode DeviceSupport: `~/Library/Developer/Xcode/{iOS,tvOS,watchOS,visionOS} DeviceSupport`
 - CoreSimulator caches: `~/Library/Developer/CoreSimulator/Caches`
 - CoreSimulator logs: `~/Library/Logs/CoreSimulator`
 - Simulator device caches: `~/Library/Developer/CoreSimulator/Devices/*/data/Library/Caches`
 - Homebrew cache: `~/Library/Caches/Homebrew`
 - npm cache and logs: `~/.npm/_cacache`, `~/.npm/_logs`
+- pnpm store and cache: `~/Library/pnpm/store`, `~/Library/Caches/pnpm`
+- Node tooling caches: `~/Library/Caches/node-gyp`, `~/Library/Caches/typescript`, `~/Library/Caches/bun`
+- Python caches: `~/Library/Caches/pip`, `~/.cache/pip`, `~/Library/Caches/pypoetry`, `~/.cache/pypoetry`
+- SwiftPM cache: `~/Library/Caches/org.swift.swiftpm`
+- Go caches: `~/Library/Caches/go-build`, `~/go/pkg/mod`
+- Rust caches: `~/.cargo/registry`, `~/.cargo/git`
 - Gradle caches: `~/.gradle/caches`, `~/.gradle/daemon`, `~/.gradle/wrapper/dists`
+- Browser caches: `~/Library/Caches/Google`, `~/Library/Caches/BraveSoftware`, `~/Library/Caches/Firefox`, `~/Library/Caches/com.apple.Safari`
 - Discovered project `node_modules` directories
 
 Report-only locations:
 
+- Xcode Archives: `~/Library/Developer/Xcode/Archives`
 - Docker Desktop logs: `~/Library/Containers/com.docker.docker/Data/log`
 - Docker Desktop VM data: `~/Library/Containers/com.docker.docker/Data/vms`
+- Codex runtime cache: `~/.cache/codex-runtimes`
 
 Docker VM data is intentionally report-only because deleting it directly can remove images, containers, and volumes. Use Docker's own prune commands for Docker cleanup.
 
@@ -176,9 +217,11 @@ Docker VM data is intentionally report-only because deleting it directly can rem
 - `--node-modules` requires `--older-than`, such as `60d`.
 - Fixed cache directories use contents-only cleanup, preserving the parent directory.
 - `node_modules` cleanup removes the selected `node_modules` directory tree.
+- Xcode DeviceSupport cleanup removes cached support files that Xcode can recreate when needed.
+- Xcode Archives, Docker data, and active-session runtime caches are report-only.
 - Cleanup targets must match known cache path shapes and stay inside their scan safety root.
 - Symlink targets are refused.
-- Docker data is report-only.
+- Cleanable scan targets under 1 MiB are skipped to avoid recommending no-op cleanup.
 - Use `--dry-run` before deleting to see the selected paths.
 
 Supported age values are `s`, `m`, `h`, `d`, and `w`, for example `30d`, `12h`, or `2w`.
@@ -186,6 +229,14 @@ Supported age values are `s`, `m`, `h`, `d`, and `w`, for example `30d`, `12h`, 
 ## xcode-sim-prune
 
 This repository also includes `xcode-sim-prune`, a focused CLI for Xcode simulator storage. It uses `xcrun simctl` for simulator operations instead of deleting simulator internals directly.
+
+Run an automatic scan and confirm safe simulator device deletion interactively:
+
+```sh
+xcode-sim-prune
+```
+
+By default, `xcode-sim-prune` prompts before deleting shutdown simulator devices that are unavailable to the current Xcode or have never been booted.
 
 List simulator devices and runtime images:
 
@@ -199,6 +250,20 @@ Preview and delete unavailable devices:
 ```sh
 xcode-sim-prune delete-unavailable --dry-run
 xcode-sim-prune delete-unavailable
+```
+
+Preview and delete specific shutdown simulator devices by exact name or UDID:
+
+```sh
+xcode-sim-prune delete-devices --name "iPhone 17" --dry-run
+xcode-sim-prune delete-devices --name "iPhone 17"
+xcode-sim-prune delete-devices --udid BB56347C-413D-42CF-AA83-98F77434BE4A --dry-run
+```
+
+Preview a broader pass that keeps named devices:
+
+```sh
+xcode-sim-prune delete-devices --all-shutdown --keep-name "iPhone 17 Pro" --dry-run
 ```
 
 Preview and delete runtime images not used within an age threshold:
@@ -224,10 +289,12 @@ xcode-sim-prune erase-unused --older-than 60d --dry-run
 Safety notes:
 
 - `list` never changes anything.
+- Running `xcode-sim-prune` without arguments scans safe simulator device deletion candidates and prompts before deleting anything.
 - `delete-unavailable` delegates to `xcrun simctl delete unavailable`.
+- `delete-devices` only deletes shutdown devices with safe UDIDs; names are exact matches, so `iPhone 17` does not match `iPhone 17 Pro`.
 - `delete-runtimes` requires `--older-than` and delegates to `xcrun simctl runtime delete --notUsedSinceDays`.
 - `erase-unused` never erases booted devices.
-- Malformed simulator device IDs are ignored before calling `simctl erase`.
+- Malformed simulator device IDs are ignored before calling `simctl`.
 - All destructive commands support `--dry-run` and `--json`.
 
 ## Development

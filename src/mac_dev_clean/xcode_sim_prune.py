@@ -15,10 +15,12 @@ from .sim_prune import (
     RuntimeImage,
     SimctlError,
     age_to_days,
+    delete_devices,
     delete_runtimes,
     delete_unavailable,
     erase_unused,
     load_inventory,
+    select_default_delete_devices,
 )
 
 
@@ -27,6 +29,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.command in {None, "interactive"}:
+            return run_interactive()
+
         if args.command == "list":
             inventory = load_inventory()
             print(
@@ -39,6 +44,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.command == "delete-unavailable":
             inventory = load_inventory()
             report = delete_unavailable(inventory, dry_run=args.dry_run)
+            print(render_action_json(report) if args.json else render_action_report(report))
+            return 0
+
+        if args.command == "delete-devices":
+            if not args.name and not args.udid and not args.all_shutdown:
+                parser.error("delete-devices requires --name, --udid, or --all-shutdown")
+            inventory = load_inventory()
+            report = delete_devices(
+                inventory,
+                names=args.name,
+                udids=args.udid,
+                all_shutdown=args.all_shutdown,
+                keep_names=args.keep_name,
+                keep_udids=args.keep_udid,
+                dry_run=args.dry_run,
+            )
             print(render_action_json(report) if args.json else render_action_report(report))
             return 0
 
@@ -80,7 +101,13 @@ def build_parser() -> argparse.ArgumentParser:
         prog="xcode-sim-prune",
         description="Safely list and prune Xcode simulator devices and runtimes.",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.set_defaults(command="interactive")
+    subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser(
+        "interactive",
+        help="Scan safe simulator cleanup candidates and prompt before deleting them.",
+    )
 
     list_parser = subparsers.add_parser("list", help="List simulator devices and runtime disk images.")
     list_parser.add_argument("--json", action="store_true", help="Print JSON output.")
@@ -90,6 +117,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete simulator devices unsupported by the current Xcode SDK.",
     )
     add_action_options(unavailable_parser)
+
+    delete_devices_parser = subparsers.add_parser(
+        "delete-devices",
+        help="Delete selected shutdown simulator devices by exact name or UDID.",
+    )
+    delete_devices_parser.add_argument(
+        "--name",
+        action="append",
+        default=[],
+        help="Exact simulator device name to delete. Can be passed more than once.",
+    )
+    delete_devices_parser.add_argument(
+        "--udid",
+        action="append",
+        default=[],
+        help="Simulator UDID to delete. Can be passed more than once.",
+    )
+    delete_devices_parser.add_argument(
+        "--all-shutdown",
+        action="store_true",
+        help="Select every shutdown simulator device.",
+    )
+    delete_devices_parser.add_argument(
+        "--keep-name",
+        action="append",
+        default=[],
+        help="Exact simulator device name to keep when using broad selections.",
+    )
+    delete_devices_parser.add_argument(
+        "--keep-udid",
+        action="append",
+        default=[],
+        help="Simulator UDID to keep when using broad selections.",
+    )
+    add_action_options(delete_devices_parser)
 
     runtime_parser = subparsers.add_parser(
         "delete-runtimes",
@@ -118,6 +180,29 @@ def build_parser() -> argparse.ArgumentParser:
     add_action_options(erase_parser)
 
     return parser
+
+
+def run_interactive() -> int:
+    inventory = load_inventory()
+    candidates = select_default_delete_devices(inventory.devices)
+    if not candidates:
+        print("No safe simulator cleanup candidates found.")
+        return 0
+
+    target_udids = [device.udid for device in candidates]
+    preview = delete_devices(inventory, udids=target_udids, dry_run=True)
+
+    print("Safe simulator cleanup candidates")
+    print()
+    print(render_action_report(preview))
+    print()
+    if not prompt_yes_no("Delete these shutdown simulator devices? [y/N] "):
+        print("Canceled. Nothing deleted.")
+        return 0
+
+    result = delete_devices(inventory, udids=target_udids, dry_run=False)
+    print(render_action_report(result))
+    return 0
 
 
 def add_action_options(parser: argparse.ArgumentParser) -> None:
@@ -233,6 +318,20 @@ def _format_datetime(value: object) -> str:
     if hasattr(value, "strftime"):
         return value.strftime("%Y-%m-%d")
     return str(value)
+
+
+def prompt_yes_no(message: str) -> bool:
+    while True:
+        try:
+            response = input(message)
+        except EOFError:
+            return False
+        normalized = response.strip().lower()
+        if normalized in {"y", "yes"}:
+            return True
+        if normalized in {"", "n", "no"}:
+            return False
+        print("Please answer y or n.")
 
 
 if __name__ == "__main__":
