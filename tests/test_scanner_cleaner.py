@@ -5,9 +5,9 @@ import os
 import unittest
 from unittest.mock import patch
 
-from mac_dev_clean.cleaner import clean_target
+from mac_dev_clean.cleaner import clean_target, validate_category_path
 from mac_dev_clean.model import ScanTarget
-from mac_dev_clean.scanner import _location_measurement, find_node_modules, scan
+from mac_dev_clean.scanner import _location_measurement, _unique_targets, find_node_modules, scan
 from mac_dev_clean.sim_prune import Device, Inventory
 
 
@@ -48,6 +48,19 @@ class ScannerCleanerTests(unittest.TestCase):
             )
 
             self.assertEqual({item.category for item in items}, {"xcode-derived-data"})
+
+    def test_scan_deduplicates_targets_that_resolve_to_the_same_path(self):
+        target = ScanTarget(
+            category="project-derived-data",
+            label="Project-local Xcode DerivedData",
+            path=Path("/tmp/App/Build/DerivedData"),
+            size_bytes=100,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="tree",
+        )
+
+        self.assertEqual(_unique_targets([target, target]), [target])
 
     def test_dry_run_does_not_delete_contents(self):
         with TemporaryDirectory() as temp:
@@ -123,7 +136,7 @@ class ScannerCleanerTests(unittest.TestCase):
 
             archive = home / "Library/Developer/Xcode/Archives/2026-06-07/App.xcarchive"
             archive.mkdir(parents=True)
-            (archive / "Info.plist").write_text("archive")
+            (archive / "Info.plist").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
 
             items = scan(home=home, cwd=home, include_node_modules=False)
 
@@ -230,7 +243,7 @@ class ScannerCleanerTests(unittest.TestCase):
             codex_runtime.mkdir(parents=True)
             (pnpm / "pkg.bin").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
             (browser / "cache.bin").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
-            (codex_runtime / "runtime.txt").write_text("runtime")
+            (codex_runtime / "runtime.txt").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
 
             items = scan(home=home, cwd=home, include_node_modules=False)
 
@@ -241,6 +254,80 @@ class ScannerCleanerTests(unittest.TestCase):
             self.assertTrue(next(item for item in items if item.category == "pnpm-cache").cleanable)
             self.assertTrue(next(item for item in items if item.category == "browser-cache").cleanable)
             self.assertFalse(next(item for item in items if item.category == "dev-tool-cache").cleanable)
+
+    def test_scan_skips_tiny_report_only_locations(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            backup = home / "Library/Application Support/MobileSync/Backup"
+            backup.mkdir(parents=True)
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            self.assertNotIn("device-backups", {item.category for item in items})
+
+    def test_scan_finds_large_browser_editor_updater_and_bun_caches(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            locations = {
+                "browser-cache": home
+                / "Library/Application Support/Google/Chrome/OptGuideOnDeviceModel/model.bin",
+                "updater-cache": home
+                / "Library/Application Support/Google/GoogleUpdater/crx_cache/update.crx",
+                "editor-cache": home
+                / "Library/Application Support/Cursor/CachedData/resources.bin",
+                "node-tool-cache": home / ".bun/install/cache/package.bin",
+            }
+            for payload in locations.values():
+                payload.parent.mkdir(parents=True)
+                payload.write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            self.assertTrue(set(locations).issubset({item.category for item in items}))
+
+    def test_scan_finds_only_marked_project_local_derived_data(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            derived_data = home / "App/DerivedDataSim"
+            (derived_data / "Build").mkdir(parents=True)
+            (derived_data / "info.plist").write_text("plist")
+            (derived_data / "Build/artifact.o").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+            forged = home / "Notes/DerivedDataPersonal"
+            forged.mkdir(parents=True)
+            (forged / "keep.txt").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            targets = [item for item in items if item.category == "project-derived-data"]
+            self.assertEqual([item.path for item in targets], [derived_data])
+            result = clean_target(targets[0])
+            self.assertTrue(result.removed)
+            self.assertFalse(derived_data.exists())
+            self.assertTrue(forged.exists())
+
+    def test_system_simulator_cache_requires_exact_supported_path(self):
+        expected_path = Path("/Library/Developer/CoreSimulator/Caches/dyld")
+        expected_root = Path("/Library/Developer/CoreSimulator/Caches")
+
+        target = ScanTarget(
+            category="simulator-dyld-cache",
+            label="CoreSimulator dyld shared caches",
+            path=expected_path,
+            size_bytes=1,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="simctl-runtime-cache",
+            safety_root=expected_root,
+        )
+
+        self.assertEqual(
+            validate_category_path(target, expected_path, expected_root),
+            "",
+        )
+        self.assertIn(
+            "does not match",
+            validate_category_path(target, Path("/tmp/dyld"), Path("/tmp")),
+        )
 
     def test_clean_refuses_target_without_safety_root(self):
         with TemporaryDirectory() as temp:

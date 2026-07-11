@@ -149,6 +149,10 @@ def load_device_set_inventory(device_set: Path, runner: Runner = run_simctl) -> 
     return Inventory(devices=devices, runtimes=[])
 
 
+def remove_runtime_dyld_caches(runner: Runner = run_simctl) -> str:
+    return runner(["runtime", "dyld_shared_cache", "remove", "--all"])
+
+
 def parse_devices_json(raw: str) -> List[Device]:
     payload = json.loads(raw or "{}")
     devices_by_runtime = payload.get("devices", {})

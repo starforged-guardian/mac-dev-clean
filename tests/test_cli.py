@@ -157,6 +157,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         clean_targets.assert_called_once_with([cleanable])
         self.assertIn("removed", stdout.getvalue())
+        self.assertIn("/tmp/home/Library/Containers/com.docker.docker/Data/vms", stdout.getvalue())
 
     def test_interactive_include_node_modules_requires_age_filter(self):
         stderr = io.StringIO()

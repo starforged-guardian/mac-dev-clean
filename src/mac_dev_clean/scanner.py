@@ -30,6 +30,17 @@ class GlobLocationSpec:
     note: str = ""
 
 
+@dataclass(frozen=True)
+class AbsoluteLocationSpec:
+    category: str
+    label: str
+    path: str
+    cleanable: bool
+    delete_mode: str
+    safety_root: str
+    note: str = ""
+
+
 FIXED_LOCATIONS = (
     LocationSpec(
         "xcode-derived-data",
@@ -117,7 +128,7 @@ FIXED_LOCATIONS = (
         "Library/Developer/Xcode/Archives",
         False,
         "none",
-        "Reported only. App archives and dSYMs may be needed for releases and crash symbolication.",
+        "App archives and dSYMs may be needed for releases and crash symbolication. Old exports can be archived to iCloud Drive after you verify they are no longer needed in Xcode Organizer.",
     ),
     LocationSpec(
         "simulator-caches",
@@ -198,6 +209,14 @@ FIXED_LOCATIONS = (
         True,
         "contents",
         "Bun package and tooling cache.",
+    ),
+    LocationSpec(
+        "node-tool-cache",
+        "Bun install cache",
+        ".bun/install/cache",
+        True,
+        "contents",
+        "Downloaded Bun packages. Packages are fetched again when needed.",
     ),
     LocationSpec(
         "python-cache",
@@ -305,6 +324,102 @@ FIXED_LOCATIONS = (
     ),
     LocationSpec(
         "browser-cache",
+        "Chrome on-device AI model",
+        "Library/Application Support/Google/Chrome/OptGuideOnDeviceModel",
+        True,
+        "contents",
+        "Downloaded Chrome AI model. Chrome can download it again when storage requirements are met.",
+    ),
+    LocationSpec(
+        "browser-cache",
+        "Chrome component cache",
+        "Library/Application Support/Google/Chrome/component_crx_cache",
+        True,
+        "contents",
+        "Downloaded Chrome components. Close Chrome before cleaning.",
+    ),
+    LocationSpec(
+        "browser-cache",
+        "Brave component cache",
+        "Library/Application Support/BraveSoftware/Brave-Browser/component_crx_cache",
+        True,
+        "contents",
+        "Downloaded Brave components. Close Brave before cleaning.",
+    ),
+    LocationSpec(
+        "updater-cache",
+        "Google Updater package cache",
+        "Library/Application Support/Google/GoogleUpdater/crx_cache",
+        True,
+        "contents",
+        "Downloaded Google update packages.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Cursor cache",
+        "Library/Application Support/Cursor/Cache",
+        True,
+        "contents",
+        "Editor web cache. Close Cursor before cleaning.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Cursor version cache",
+        "Library/Application Support/Cursor/CachedData",
+        True,
+        "contents",
+        "Cached editor resources. Close Cursor before cleaning.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Cursor logs",
+        "Library/Application Support/Cursor/logs",
+        True,
+        "contents",
+        "Cursor diagnostic logs.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Windsurf cache",
+        "Library/Application Support/Windsurf/Cache",
+        True,
+        "contents",
+        "Editor web cache. Close Windsurf before cleaning.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Windsurf version cache",
+        "Library/Application Support/Windsurf/CachedData",
+        True,
+        "contents",
+        "Cached editor resources. Close Windsurf before cleaning.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Codex app cache",
+        "Library/Application Support/Codex/Cache",
+        True,
+        "contents",
+        "Codex desktop web cache. Close Codex before cleaning.",
+    ),
+    LocationSpec(
+        "editor-cache",
+        "Codex component cache",
+        "Library/Application Support/Codex/component_crx_cache",
+        True,
+        "contents",
+        "Downloaded Codex desktop browser components. Close Codex before cleaning.",
+    ),
+    LocationSpec(
+        "wallpaper-cache",
+        "Downloaded aerial wallpapers",
+        "Library/Application Support/com.apple.wallpaper/aerials/videos",
+        True,
+        "contents",
+        "Downloaded wallpaper videos. macOS may download selected wallpapers again.",
+    ),
+    LocationSpec(
+        "browser-cache",
         "Brave browser caches",
         "Library/Caches/BraveSoftware",
         True,
@@ -351,6 +466,60 @@ FIXED_LOCATIONS = (
         "none",
         "Reported only. Close active Codex sessions before manually clearing downloaded runtimes.",
     ),
+    LocationSpec(
+        "developer-data",
+        "Codex task history",
+        ".codex/sessions",
+        False,
+        "none",
+        "Preserve unless intentionally archiving old task history. Do not move active Codex state into iCloud.",
+    ),
+    LocationSpec(
+        "icloud-candidate",
+        "Codex generated images",
+        ".codex/generated_images",
+        False,
+        "none",
+        "Review old generated images. Finished images can be copied to iCloud Drive, then Remove Download in Finder.",
+    ),
+    LocationSpec(
+        "device-backups",
+        "Local Apple device backups",
+        "Library/Application Support/MobileSync/Backup",
+        False,
+        "none",
+        "Review in Finder or macOS Storage settings. Prefer iCloud Backup before deleting a needed local backup.",
+    ),
+)
+
+SYSTEM_LOCATIONS = (
+    AbsoluteLocationSpec(
+        "installed-apps",
+        "Installed applications",
+        "/Applications",
+        False,
+        "none",
+        "/Applications",
+        "Review large unused apps in System Settings > General > Storage > Applications; uninstall through Finder or the app's uninstaller.",
+    ),
+    AbsoluteLocationSpec(
+        "simulator-dyld-cache",
+        "CoreSimulator dyld shared caches",
+        "/Library/Developer/CoreSimulator/Caches/dyld",
+        True,
+        "simctl-runtime-cache",
+        "/Library/Developer/CoreSimulator/Caches",
+        "Generated simulator runtime caches removed through simctl. Close Xcode and Simulator first.",
+    ),
+    AbsoluteLocationSpec(
+        "developer-tools",
+        "Command Line Tools installation",
+        "/Library/Developer/CommandLineTools",
+        False,
+        "none",
+        "/Library/Developer",
+        "Reported only. Keep if Homebrew or command-line builds rely on it; uninstall through Apple's supported tooling if no longer needed.",
+    ),
 )
 
 GLOB_LOCATIONS = (
@@ -361,6 +530,30 @@ GLOB_LOCATIONS = (
         True,
         "contents",
         "Per-device simulator app cache directories.",
+    ),
+    GlobLocationSpec(
+        "project-derived-data",
+        "Project-local Xcode DerivedData",
+        "*/DerivedData*",
+        True,
+        "tree",
+        "Generated Xcode build products. The directory must contain Xcode's DerivedData markers.",
+    ),
+    GlobLocationSpec(
+        "project-derived-data",
+        "Project-local Xcode DerivedData",
+        "*/Build/DerivedData",
+        True,
+        "tree",
+        "Generated Xcode build products. The directory must contain Xcode's DerivedData markers.",
+    ),
+    GlobLocationSpec(
+        "project-derived-data",
+        "Project-local Xcode DerivedData",
+        "*/build/DerivedData",
+        True,
+        "tree",
+        "Generated Xcode build products. The directory must contain Xcode's DerivedData markers.",
     ),
 )
 
@@ -388,7 +581,7 @@ SKIPPED_DIR_NAMES = {
     "Library",
 }
 
-MIN_CLEANABLE_TARGET_SIZE_BYTES = 1024 * 1024
+MIN_REPORTED_TARGET_SIZE_BYTES = 1024 * 1024
 
 
 def scan(
@@ -406,13 +599,15 @@ def scan(
 
     targets: List[ScanTarget] = []
     targets.extend(_scan_fixed_locations(home, categories=categories))
+    if _is_default_home(home):
+        targets.extend(_scan_system_locations(categories=categories))
     targets.extend(_scan_glob_locations(home, categories=categories))
 
     if include_node_modules and (categories is None or "node-modules" in categories):
         roots = list(search_roots) if search_roots else default_search_roots(home, cwd)
         targets.extend(_scan_node_modules(roots, node_modules_older_than, now, home))
 
-    return sorted(targets, key=lambda item: item.size_bytes, reverse=True)
+    return sorted(_unique_targets(targets), key=lambda item: item.size_bytes, reverse=True)
 
 
 def default_search_roots(home: Path, cwd: Path) -> List[Path]:
@@ -420,6 +615,22 @@ def default_search_roots(home: Path, cwd: Path) -> List[Path]:
     for name in DEFAULT_SEARCH_ROOT_NAMES:
         roots.append(home / name)
     return unique_existing_roots(roots, home)
+
+
+def _unique_targets(targets: Iterable[ScanTarget]) -> List[ScanTarget]:
+    seen: Set[object] = set()
+    result: List[ScanTarget] = []
+    for target in targets:
+        try:
+            target_stat = os.stat(target.path, follow_symlinks=False)
+            key: object = (target_stat.st_dev, target_stat.st_ino)
+        except OSError:
+            key = _safe_resolve(target.path) or target.path
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(target)
+    return result
 
 
 def unique_existing_roots(roots: Iterable[Path], home: Optional[Path] = None) -> List[Path]:
@@ -487,6 +698,28 @@ def _scan_glob_locations(
                     yield target
 
 
+def _scan_system_locations(
+    categories: Optional[Set[str]] = None,
+) -> Iterator[ScanTarget]:
+    for spec in SYSTEM_LOCATIONS:
+        if categories is not None and spec.category not in categories:
+            continue
+        path = Path(spec.path)
+        if not path.exists():
+            continue
+        target = _target_from_path(
+            path=path,
+            category=spec.category,
+            label=spec.label,
+            cleanable=spec.cleanable,
+            delete_mode=spec.delete_mode,
+            note=spec.note,
+            safety_root=Path(spec.safety_root),
+        )
+        if target:
+            yield target
+
+
 def _scan_node_modules(
     roots: Sequence[Path],
     older_than: Optional[timedelta],
@@ -543,8 +776,12 @@ def _target_from_path(
     note: str,
     safety_root: Optional[Path],
 ) -> Optional[ScanTarget]:
+    if category == "project-derived-data" and not _is_project_derived_data_path(
+        path, safety_root
+    ):
+        return None
     size, include_when_small = _location_measurement(path, category)
-    if cleanable and size < MIN_CLEANABLE_TARGET_SIZE_BYTES and not include_when_small:
+    if size < MIN_REPORTED_TARGET_SIZE_BYTES and not include_when_small:
         return None
     modified_at = modified_time(path)
     return ScanTarget(
@@ -581,6 +818,22 @@ def _location_measurement(path: Path, category: str) -> tuple[int, bool]:
     # exceed the entire disk even when the clones have no exclusive allocated
     # blocks, so do not present that value as physically reclaimable storage.
     return 0, bool(inventory.devices)
+
+
+def _is_project_derived_data_path(path: Path, safety_root: Optional[Path]) -> bool:
+    if safety_root is None:
+        return False
+    try:
+        parts = path.resolve().relative_to(safety_root.resolve()).parts
+    except (OSError, ValueError):
+        return False
+    direct = len(parts) == 2 and parts[1].startswith("DerivedData")
+    nested = (
+        len(parts) == 3
+        and parts[1] in {"Build", "build"}
+        and parts[2] == "DerivedData"
+    )
+    return (direct or nested) and (path / "info.plist").is_file() and (path / "Build").is_dir()
 
 
 def path_size(path: Path) -> int:
@@ -629,6 +882,10 @@ def _safe_resolve(path: Optional[Path]) -> Optional[Path]:
         return path.expanduser().resolve()
     except OSError:
         return None
+
+
+def _is_default_home(home: Path) -> bool:
+    return _safe_resolve(home) == _safe_resolve(Path.home())
 
 
 def _is_same_or_parent(candidate: Path, path: Path) -> bool:

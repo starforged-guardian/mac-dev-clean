@@ -40,8 +40,9 @@ class OutputTests(unittest.TestCase):
 
         output = render_scan_table(items)
 
-        self.assertIn("Potential cleanup: 14.0 GB cleanable | 1.0 GB report-only", output)
-        self.assertIn("Quick wins:", output)
+        self.assertIn("Cleanable:    14.0 GB across 2 item(s)", output)
+        self.assertIn("Review only:  1.0 GB across 1 item(s)", output)
+        self.assertIn("Quick wins\n----------", output)
         self.assertIn("mac-dev-clean clean --xcode-device-support --dry-run", output)
         self.assertIn("mac-dev-clean clean --browser-caches --dry-run", output)
         self.assertNotIn("xcode-archives --dry-run", output)
@@ -107,6 +108,51 @@ class OutputTests(unittest.TestCase):
 
         self.assertIn("delete requested", output)
         self.assertIn("APFS may reclaim shared blocks in the background", output)
+
+    def test_report_only_items_include_review_guidance(self):
+        target = ScanTarget(
+            category="icloud-candidate",
+            label="Codex generated images",
+            path=Path("/tmp/home/.codex/generated_images"),
+            size_bytes=1024 * 1024 * 1024,
+            modified_at=None,
+            cleanable=False,
+            delete_mode="none",
+            note="Copy finished images to iCloud Drive, then Remove Download in Finder.",
+        )
+
+        output = render_scan_table([target])
+
+        self.assertIn("Review-only items (1)", output)
+        self.assertIn("Remove Download in Finder", output)
+
+    def test_human_scan_output_uses_spaced_two_line_entries(self):
+        items = [
+            ScanTarget(
+                category="browser-cache",
+                label="Chrome model",
+                path=Path.home() / "Library/Application Support/Google/Chrome/Model",
+                size_bytes=4 * 1024 * 1024 * 1024,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="contents",
+            ),
+            ScanTarget(
+                category="editor-cache",
+                label="Cursor cache",
+                path=Path.home() / "Library/Application Support/Cursor/Cache",
+                size_bytes=100 * 1024 * 1024,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="contents",
+            ),
+        ]
+
+        output = render_scan_table(items)
+
+        self.assertIn("Cleanable items (2)\n-------------------", output)
+        self.assertIn("\n    Path: ~/Library/Application Support/Google/Chrome/Model", output)
+        self.assertIn("Model\n\n  editor-cache", output)
 
 
 if __name__ == "__main__":

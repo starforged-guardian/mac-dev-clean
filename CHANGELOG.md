@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Reworked human-readable scan and cleanup output into summary, quick-win, cleanable, and review-only sections with spaced two-line entries, wrapped notes, and home-relative paths.
+- Suppressed report-only locations under 1 MiB so empty directories such as an unused MobileSync backup folder are not presented as meaningful review items.
+
 - Added scanning and dry-run-first cleanup for `~/Library/Developer/XCTestDevices`, where parallel Xcode tests can leave hundreds of multi-gigabyte simulator clones.
 - Delegated XCTest clone deletion to `simctl` with the dedicated device set instead of deleting simulator internals directly, and refuse cleanup while any clone is booted.
 - Added Xcode device-log cleanup plus `--xcode-caches` as a broad explicit cleanup option for supported data under `~/Library/Developer`.
@@ -11,6 +14,10 @@ All notable changes to this project will be documented in this file.
 - Stopped presenting the sum of `simctl` XCTest clone logical sizes as reclaimable disk usage; clone storage is now labeled `shared/unknown` because APFS sharing can make the logical total vastly exceed physical allocation.
 - Updated `run_local.sh` to invoke the standard one-confirmation cleanup instead of hard-coding clone-only commands.
 - Report XCTest clone cleanup as an asynchronous delete request and explain that CoreSimulator/APFS free-space reclamation may lag for several minutes.
+- Added supported `simctl` cleanup for system-wide CoreSimulator dyld shared caches.
+- Added cleanup for Chrome's downloaded on-device AI model, browser component/update caches, Cursor/Windsurf/Codex desktop caches, Bun's install cache, and downloaded aerial wallpapers.
+- Added strict discovery and path-marker validation for project-local Xcode DerivedData directories.
+- Added report-only guidance for Codex history/generated images, local Apple device backups, Command Line Tools, and safe manual iCloud offloading.
 
 ## 0.4.0 - 2026-06-07
 

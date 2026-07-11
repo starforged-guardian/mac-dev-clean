@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Iterable, List
 
 from .model import CleanResult, ScanTarget
-from .sim_prune import SimctlError, delete_test_clones, load_device_set_inventory
+from .sim_prune import (
+    SimctlError,
+    delete_test_clones,
+    load_device_set_inventory,
+    remove_runtime_dyld_caches,
+)
 
 
 DANGEROUS_NAMES = {"", ".", ".."}
@@ -19,11 +24,15 @@ CATEGORY_DELETE_MODES = {
     "xcode-device-support": "contents",
     "xcode-device-logs": "contents",
     "xcode-test-devices": "simctl-device-set",
+    "simulator-dyld-cache": "simctl-runtime-cache",
     "simulator-caches": "contents",
     "brew-cache": "contents",
     "npm-cache": "contents",
     "pnpm-cache": "contents",
     "node-tool-cache": "contents",
+    "updater-cache": "contents",
+    "editor-cache": "contents",
+    "wallpaper-cache": "contents",
     "python-cache": "contents",
     "swiftpm-cache": "contents",
     "go-cache": "contents",
@@ -31,6 +40,7 @@ CATEGORY_DELETE_MODES = {
     "gradle-cache": "contents",
     "browser-cache": "contents",
     "node-modules": "tree",
+    "project-derived-data": "tree",
 }
 
 FIXED_CATEGORY_SUFFIXES = {
@@ -48,6 +58,7 @@ FIXED_CATEGORY_SUFFIXES = {
     ),
     "xcode-device-logs": (("Library", "Developer", "Xcode", "DeviceLogs"),),
     "xcode-test-devices": (("Library", "Developer", "XCTestDevices"),),
+    "simulator-dyld-cache": (("dyld",),),
     "simulator-caches": (
         ("Library", "Developer", "CoreSimulator", "Caches"),
         ("Library", "Logs", "CoreSimulator"),
@@ -62,6 +73,22 @@ FIXED_CATEGORY_SUFFIXES = {
         ("Library", "Caches", "node-gyp"),
         ("Library", "Caches", "typescript"),
         ("Library", "Caches", "bun"),
+        (".bun", "install", "cache"),
+    ),
+    "updater-cache": (
+        ("Library", "Application Support", "Google", "GoogleUpdater", "crx_cache"),
+    ),
+    "editor-cache": (
+        ("Library", "Application Support", "Cursor", "Cache"),
+        ("Library", "Application Support", "Cursor", "CachedData"),
+        ("Library", "Application Support", "Cursor", "logs"),
+        ("Library", "Application Support", "Windsurf", "Cache"),
+        ("Library", "Application Support", "Windsurf", "CachedData"),
+        ("Library", "Application Support", "Codex", "Cache"),
+        ("Library", "Application Support", "Codex", "component_crx_cache"),
+    ),
+    "wallpaper-cache": (
+        ("Library", "Application Support", "com.apple.wallpaper", "aerials", "videos"),
     ),
     "python-cache": (
         ("Library", "Caches", "pip"),
@@ -88,6 +115,15 @@ FIXED_CATEGORY_SUFFIXES = {
         ("Library", "Caches", "BraveSoftware"),
         ("Library", "Caches", "Firefox"),
         ("Library", "Caches", "com.apple.Safari"),
+        ("Library", "Application Support", "Google", "Chrome", "OptGuideOnDeviceModel"),
+        ("Library", "Application Support", "Google", "Chrome", "component_crx_cache"),
+        (
+            "Library",
+            "Application Support",
+            "BraveSoftware",
+            "Brave-Browser",
+            "component_crx_cache",
+        ),
     ),
 }
 
@@ -112,6 +148,8 @@ def clean_target(target: ScanTarget, dry_run: bool = False) -> CleanResult:
         elif target.delete_mode == "simctl-device-set":
             inventory = load_device_set_inventory(target.path)
             delete_test_clones(inventory, target.path)
+        elif target.delete_mode == "simctl-runtime-cache":
+            remove_runtime_dyld_caches()
         else:
             return _result(
                 target,
@@ -159,15 +197,29 @@ def validate_target(target: ScanTarget) -> str:
     if target.delete_mode == "tree" and target.category == "node-modules":
         if path.name != "node_modules":
             return "refusing to clean a non-node_modules tree"
+    if target.delete_mode == "tree" and target.category == "project-derived-data":
+        if not _looks_like_project_derived_data(
+            resolved.relative_to(safety_root).parts, resolved
+        ):
+            return "refusing to clean a directory without Xcode DerivedData markers"
     if target.delete_mode == "contents" and not path.is_dir():
         return "contents mode requires a directory"
     if target.delete_mode == "simctl-device-set" and not path.is_dir():
         return "simctl device-set mode requires a directory"
+    if target.delete_mode == "simctl-runtime-cache" and not path.is_dir():
+        return "simctl runtime-cache mode requires a directory"
 
     return ""
 
 
 def validate_category_path(target: ScanTarget, resolved: Path, safety_root: Path) -> str:
+    if target.category == "simulator-dyld-cache":
+        expected_path = Path("/Library/Developer/CoreSimulator/Caches/dyld").resolve()
+        expected_root = Path("/Library/Developer/CoreSimulator/Caches").resolve()
+        if resolved == expected_path and safety_root == expected_root:
+            return ""
+        return "target path does not match the CoreSimulator dyld cache"
+
     try:
         parts = resolved.relative_to(safety_root).parts
     except ValueError:
@@ -176,6 +228,11 @@ def validate_category_path(target: ScanTarget, resolved: Path, safety_root: Path
     if target.category == "node-modules":
         if resolved.name != "node_modules":
             return "refusing to clean a non-node_modules tree"
+        return ""
+
+    if target.category == "project-derived-data":
+        if not _looks_like_project_derived_data(parts, resolved):
+            return "refusing to clean a directory without Xcode DerivedData markers"
         return ""
 
     allowed_suffixes = FIXED_CATEGORY_SUFFIXES.get(target.category)
@@ -222,6 +279,16 @@ def _looks_like_simulator_device_cache(parts: tuple[str, ...]) -> bool:
         and _looks_like_uuid(parts[4])
         and parts[5:] == ("data", "Library", "Caches")
     )
+
+
+def _looks_like_project_derived_data(parts: tuple[str, ...], path: Path) -> bool:
+    direct = len(parts) == 2 and parts[1].startswith("DerivedData")
+    nested = (
+        len(parts) == 3
+        and parts[1] in {"Build", "build"}
+        and parts[2] == "DerivedData"
+    )
+    return (direct or nested) and (path / "info.plist").is_file() and (path / "Build").is_dir()
 
 
 def _looks_like_uuid(value: str) -> bool:

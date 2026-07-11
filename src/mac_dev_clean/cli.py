@@ -26,6 +26,8 @@ FLAG_TO_CATEGORIES = {
         "xcode-device-logs",
         "xcode-test-devices",
         "simulator-caches",
+        "simulator-dyld-cache",
+        "project-derived-data",
     },
     "simulator_caches": {"simulator-caches"},
     "brew_cache": {"brew-cache"},
@@ -48,6 +50,10 @@ FLAG_TO_CATEGORIES = {
         "gradle-cache",
     },
     "browser_caches": {"browser-cache"},
+    "editor_caches": {"editor-cache", "updater-cache"},
+    "wallpaper_cache": {"wallpaper-cache"},
+    "project_derived_data": {"project-derived-data"},
+    "simulator_dyld_cache": {"simulator-dyld-cache"},
     "node_modules": {"node-modules"},
 }
 
@@ -180,7 +186,27 @@ def build_parser() -> argparse.ArgumentParser:
     clean_parser.add_argument(
         "--browser-caches",
         action="store_true",
-        help="Clean supported browser cache directories.",
+        help="Clean supported browser caches, downloaded components, and Chrome's on-device AI model.",
+    )
+    clean_parser.add_argument(
+        "--editor-caches",
+        action="store_true",
+        help="Clean Cursor, Windsurf, Codex desktop, and updater caches.",
+    )
+    clean_parser.add_argument(
+        "--wallpaper-cache",
+        action="store_true",
+        help="Clean downloaded aerial wallpaper videos.",
+    )
+    clean_parser.add_argument(
+        "--project-derived-data",
+        action="store_true",
+        help="Clean strictly validated project-local Xcode DerivedData directories.",
+    )
+    clean_parser.add_argument(
+        "--simulator-dyld-cache",
+        action="store_true",
+        help="Remove generated simulator runtime dyld caches through simctl.",
     )
     clean_parser.add_argument(
         "--node-modules",
@@ -289,14 +315,18 @@ def run_interactive(args: argparse.Namespace, parser: argparse.ArgumentParser) -
         node_modules_older_than=older_than,
         now=datetime.now(timezone.utc),
     )
+    if not items:
+        print("No supported developer cache locations found.")
+        return 0
+
     targets = [item for item in items if item.cleanable]
+    print(render_scan_table(items))
     if not targets:
         print("No cleanable developer cache locations found.")
         return 0
 
-    print(render_scan_table(targets))
     print()
-    if not prompt_yes_no("Delete these cleanable items? [y/N] "):
+    if not prompt_yes_no("Delete the cleanable items listed above? [y/N] "):
         print("Canceled. Nothing deleted.")
         return 0
 

@@ -14,6 +14,7 @@ from mac_dev_clean.sim_prune import (
     erase_unused,
     parse_devices_json,
     parse_runtime_images_json,
+    remove_runtime_dyld_caches,
     is_safe_simctl_udid,
     select_default_delete_devices,
     select_devices_for_delete,
@@ -291,6 +292,19 @@ class SimPruneTests(unittest.TestCase):
                 Path("/Users/test/Library/Developer/XCTestDevices"),
                 runner=lambda _args: self.fail("runner called"),
             )
+
+    def test_remove_runtime_dyld_caches_uses_supported_simctl_command(self):
+        calls = []
+
+        output = remove_runtime_dyld_caches(
+            runner=lambda args: calls.append(list(args)) or "removed"
+        )
+
+        self.assertEqual(
+            calls,
+            [["runtime", "dyld_shared_cache", "remove", "--all"]],
+        )
+        self.assertEqual(output, "removed")
 
     def test_age_to_days_rounds_up_partial_days(self):
         self.assertEqual(age_to_days(timedelta(hours=12)), 1)

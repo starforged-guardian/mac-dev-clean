@@ -77,9 +77,11 @@ Scan cleanable cache locations and confirm deletion interactively:
 mac-dev-clean
 ```
 
-This shortcut automatically includes generated XCTest simulator clones under
-`~/Library/Developer/XCTestDevices`; no category flag is required. Stop tests
-and close Xcode first, review the displayed targets, then confirm once.
+This shortcut automatically includes every supported cleanable category,
+including project-local DerivedData, generated XCTest clones, simulator runtime
+caches, browser AI models, editor/updater caches, and package caches. Stop active
+developer tools, review the displayed targets and report-only guidance, then
+confirm once.
 
 Preview cleanup without deleting files:
 
@@ -183,6 +185,20 @@ Clean simulator caches and logs:
 mac-dev-clean clean --simulator-caches
 ```
 
+Remove generated system-wide simulator dyld caches through `simctl`:
+
+```sh
+mac-dev-clean clean --simulator-dyld-cache --dry-run
+mac-dev-clean clean --simulator-dyld-cache
+```
+
+Clean strictly validated project-local Xcode DerivedData directories:
+
+```sh
+mac-dev-clean clean --project-derived-data --dry-run
+mac-dev-clean clean --project-derived-data
+```
+
 Clean Homebrew cache:
 
 ```sh
@@ -210,6 +226,23 @@ mac-dev-clean clean --browser-caches --dry-run
 mac-dev-clean clean --browser-caches
 ```
 
+This includes Chrome's downloaded on-device AI model. Chrome manages and may
+redownload that model when the machine again meets its free-space requirements.
+
+Clean editor, desktop-app, and updater caches:
+
+```sh
+mac-dev-clean clean --editor-caches --dry-run
+mac-dev-clean clean --editor-caches
+```
+
+Clean downloaded aerial wallpaper videos:
+
+```sh
+mac-dev-clean clean --wallpaper-cache --dry-run
+mac-dev-clean clean --wallpaper-cache
+```
+
 Search specific roots for `node_modules`:
 
 ```sh
@@ -228,7 +261,9 @@ Cleanable locations:
 - Xcode DeviceSupport: `~/Library/Developer/Xcode/{iOS,tvOS,watchOS,visionOS} DeviceSupport`
 - Xcode device logs: `~/Library/Developer/Xcode/DeviceLogs`
 - XCTest simulator clones: `~/Library/Developer/XCTestDevices` (deleted through `simctl`)
+- Project-local Xcode DerivedData: `~/*/DerivedData*`, `~/*/{Build,build}/DerivedData` (only with Xcode markers)
 - CoreSimulator caches: `~/Library/Developer/CoreSimulator/Caches`
+- CoreSimulator runtime dyld caches: `/Library/Developer/CoreSimulator/Caches/dyld` (removed through `simctl`)
 - CoreSimulator logs: `~/Library/Logs/CoreSimulator`
 - Simulator device caches: `~/Library/Developer/CoreSimulator/Devices/*/data/Library/Caches`
 - Homebrew cache: `~/Library/Caches/Homebrew`
@@ -241,6 +276,11 @@ Cleanable locations:
 - Rust caches: `~/.cargo/registry`, `~/.cargo/git`
 - Gradle caches: `~/.gradle/caches`, `~/.gradle/daemon`, `~/.gradle/wrapper/dists`
 - Browser caches: `~/Library/Caches/Google`, `~/Library/Caches/BraveSoftware`, `~/Library/Caches/Firefox`, `~/Library/Caches/com.apple.Safari`
+- Chrome on-device AI model and Chrome/Brave downloaded component caches
+- Google Updater package cache
+- Cursor, Windsurf, and Codex desktop cache directories
+- Bun install cache: `~/.bun/install/cache`
+- Downloaded aerial wallpaper videos
 - Discovered project `node_modules` directories
 
 Report-only locations:
@@ -249,8 +289,29 @@ Report-only locations:
 - Docker Desktop logs: `~/Library/Containers/com.docker.docker/Data/log`
 - Docker Desktop VM data: `~/Library/Containers/com.docker.docker/Data/vms`
 - Codex runtime cache: `~/.cache/codex-runtimes`
+- Codex task history and generated images
+- Local Apple device backups
+- Command Line Tools installation
+- Installed applications, with guidance to review them in macOS Storage settings
 
 Docker VM data is intentionally report-only because deleting it directly can remove images, containers, and volumes. Use Docker's own prune commands for Docker cleanup.
+
+## iCloud and Long-Term Storage
+
+`mac-dev-clean` reports data that may be worth archiving, but it does not move
+active projects, Xcode state, Codex task history, or device backups into iCloud.
+Moving those live directories can break tools when macOS evicts files locally.
+
+Good manual candidates include finished generated images, exported screenshots,
+old release artifacts you no longer need in Xcode Organizer, and other completed
+documents. Copy them into iCloud Drive, verify the upload, then use Finder's
+**Remove Download** action to release the local copy without deleting the cloud
+file. Apple documents this workflow in [Work with folders and files in iCloud
+Drive](https://support.apple.com/en-euro/guide/mac-help/mchl1a02d711/mac).
+
+For ongoing personal files, enable **Optimize Mac Storage** in System Settings >
+your Apple Account > iCloud > Drive. Keep source checkouts and active build
+directories outside iCloud Drive.
 
 ## Safety Model
 
@@ -267,10 +328,13 @@ Docker VM data is intentionally report-only because deleting it directly can rem
 - XCTest clones are displayed as `shared/unknown` instead of summing `simctl`'s logical clone sizes; APFS clones may share nearly all of their blocks, so logical totals do not predict reclaimed disk space.
 - Successful clone cleanup is reported as `delete requested`; CoreSimulator and APFS can continue reclaiming shared blocks for several minutes after `simctl` returns.
 - `--xcode-caches` selects all supported Xcode, DeviceSupport, XCTest clone, and simulator cache categories.
+- System simulator dyld-cache cleanup delegates to `xcrun simctl runtime dyld_shared_cache remove --all`.
+- Project-local DerivedData cleanup requires both `info.plist` and `Build` markers and only accepts known path shapes.
+- Report-only items are never included in the confirmation batch.
 - Xcode Archives, Docker data, and active-session runtime caches are report-only.
 - Cleanup targets must match known cache path shapes and stay inside their scan safety root.
 - Symlink targets are refused.
-- Cleanable scan targets under 1 MiB are skipped to avoid recommending no-op cleanup.
+- Scan targets under 1 MiB are skipped to avoid surfacing empty directories or insignificant cleanup/review suggestions.
 - Use `--dry-run` before deleting to see the selected paths.
 
 Supported age values are `s`, `m`, `h`, `d`, and `w`, for example `30d`, `12h`, or `2w`.

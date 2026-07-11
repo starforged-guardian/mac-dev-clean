@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import json
+import textwrap
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable, List, Set, Tuple
 
 from .model import CleanResult, ScanTarget, human_bytes
 
 
 SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
+    (
+        "simulator runtime caches",
+        {"simulator-dyld-cache"},
+        "mac-dev-clean clean --simulator-dyld-cache --dry-run",
+    ),
     (
         "XCTest simulator clones",
         {"xcode-test-devices"},
@@ -22,6 +29,11 @@ SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
         "Xcode build artifacts",
         {"xcode-derived-data", "xcode-module-cache"},
         "mac-dev-clean clean --xcode-derived-data --dry-run",
+    ),
+    (
+        "project-local Xcode build artifacts",
+        {"project-derived-data"},
+        "mac-dev-clean clean --project-derived-data --dry-run",
     ),
     (
         "Xcode documentation cache",
@@ -61,6 +73,16 @@ SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
         "browser caches",
         {"browser-cache"},
         "mac-dev-clean clean --browser-caches --dry-run",
+    ),
+    (
+        "editor and updater caches",
+        {"editor-cache", "updater-cache"},
+        "mac-dev-clean clean --editor-caches --dry-run",
+    ),
+    (
+        "downloaded wallpaper videos",
+        {"wallpaper-cache"},
+        "mac-dev-clean clean --wallpaper-cache --dry-run",
     ),
     (
         "old node_modules",
@@ -117,23 +139,17 @@ def render_scan_table(items: Iterable[ScanTarget]) -> str:
     if not targets:
         return "No supported developer cache locations found."
 
-    rows = [
-        [
-            item.category,
-            _display_size(item.category, item.size_bytes),
-            _format_modified(item),
-            "yes" if item.cleanable else "no",
-            str(item.path),
-        ]
-        for item in targets
-    ]
-    body = _render_table(["Category", "Size", "Modified", "Cleanable", "Path"], rows)
-    total = human_bytes(sum(_counted_size(item) for item in targets))
-    summary = _render_scan_summary(targets, total)
+    cleanable = [item for item in targets if item.cleanable]
+    review_only = [item for item in targets if not item.cleanable]
+    summary = _render_scan_summary(targets)
     quick_wins = _render_quick_wins(targets)
-    sections = [body, summary]
+    sections = [summary]
     if quick_wins:
         sections.append(quick_wins)
+    if cleanable:
+        sections.append(_render_scan_items("Cleanable items", cleanable))
+    if review_only:
+        sections.append(_render_review_items(review_only))
     return "\n\n".join(sections)
 
 
@@ -142,7 +158,7 @@ def render_clean_table(results: Iterable[CleanResult]) -> str:
     if not items:
         return "No matching cleanable targets found."
 
-    rows: List[List[str]] = []
+    entries: List[str] = []
     for item in items:
         if item.error:
             status = "error"
@@ -154,16 +170,15 @@ def render_clean_table(results: Iterable[CleanResult]) -> str:
             status = "removed"
         else:
             status = "skipped"
-        rows.append(
-            [
-                status,
-                item.category,
-                _display_size(item.category, item.size_bytes),
-                str(item.path),
-            ]
+        entries.append(
+            _render_entry(
+                f"{status}  |  {item.category}  |  "
+                f"{_display_size(item.category, item.size_bytes)}",
+                item.path,
+            )
         )
 
-    body = _render_table(["Status", "Category", "Size", "Path"], rows)
+    body = _section("Cleanup results", "\n\n".join(entries))
     total = human_bytes(sum(_counted_size(item) for item in items if not item.error))
     output = f"{body}\n\nTotal selected: {total} across {len(items)} item(s)"
     if any(item.category == "xcode-test-devices" and item.removed for item in items):
@@ -175,31 +190,20 @@ def render_clean_table(results: Iterable[CleanResult]) -> str:
     return output
 
 
-def _render_table(headers: List[str], rows: List[List[str]]) -> str:
-    widths = [len(header) for header in headers]
-    for row in rows:
-        for index, cell in enumerate(row):
-            widths[index] = max(widths[index], len(cell))
-
-    lines = [
-        "  ".join(header.ljust(widths[index]) for index, header in enumerate(headers)),
-        "  ".join("-" * width for width in widths),
-    ]
-    for row in rows:
-        lines.append("  ".join(cell.ljust(widths[index]) for index, cell in enumerate(row)))
-    return "\n".join(lines)
-
-
-def _render_scan_summary(targets: List[ScanTarget], total: str) -> str:
+def _render_scan_summary(targets: List[ScanTarget]) -> str:
     cleanable_total = sum(_counted_size(item) for item in targets if item.cleanable)
     report_only_total = sum(_counted_size(item) for item in targets if not item.cleanable)
-    lines = [f"Total: {total} across {len(targets)} item(s)"]
-    lines.append(
-        "Potential cleanup: "
-        f"{human_bytes(cleanable_total)} cleanable"
-        f" | {human_bytes(report_only_total)} report-only"
+    cleanable_count = sum(1 for item in targets if item.cleanable)
+    report_only_count = len(targets) - cleanable_count
+    total = cleanable_total + report_only_total
+    body = "\n".join(
+        [
+            f"  Cleanable:    {human_bytes(cleanable_total)} across {cleanable_count} item(s)",
+            f"  Review only:  {human_bytes(report_only_total)} across {report_only_count} item(s)",
+            f"  Total found:  {human_bytes(total)} across {len(targets)} item(s)",
+        ]
     )
-    return "\n".join(lines)
+    return _section("Cleanup summary", body)
 
 
 def _render_quick_wins(targets: List[ScanTarget]) -> str:
@@ -207,11 +211,63 @@ def _render_quick_wins(targets: List[ScanTarget]) -> str:
     if not wins:
         return ""
 
-    lines = ["Quick wins:"]
+    entries: List[str] = []
     for size, label, command in wins:
-        lines.append(f"- {human_bytes(size)} {label}: {command}")
-    lines.append("Review the dry run, then rerun without --dry-run to delete.")
-    return "\n".join(lines)
+        entries.append(f"  {human_bytes(size)}  {label}\n    Preview: {command}")
+    body = "\n\n".join(entries)
+    body += "\n\n  Review a preview, then rerun without --dry-run to delete."
+    return _section("Quick wins", body)
+
+
+def _render_scan_items(title: str, items: List[ScanTarget]) -> str:
+    entries = []
+    for item in items:
+        entries.append(
+            _render_entry(
+                f"{item.category}  |  {_display_size(item.category, item.size_bytes)}  "
+                f"|  modified {_format_modified(item)}",
+                item.path,
+            )
+        )
+    return _section(f"{title} ({len(items)})", "\n\n".join(entries))
+
+
+def _render_review_items(items: List[ScanTarget]) -> str:
+    entries = []
+    for item in items:
+        lines = [
+            f"  {item.label}  |  {_display_size(item.category, item.size_bytes)}",
+            f"    Path: {_display_path(item.path)}",
+        ]
+        if item.note:
+            lines.append(
+                textwrap.fill(
+                    f"Note: {item.note}",
+                    width=96,
+                    initial_indent="    ",
+                    subsequent_indent="          ",
+                )
+            )
+        entries.append("\n".join(lines))
+    return _section(f"Review-only items ({len(items)})", "\n\n".join(entries))
+
+
+def _render_entry(heading: str, path: Path) -> str:
+    return f"  {heading}\n    Path: {_display_path(path)}"
+
+
+def _section(title: str, body: str) -> str:
+    return f"{title}\n{'-' * len(title)}\n{body}"
+
+
+def _display_path(path: Path) -> str:
+    value = str(path)
+    home = str(Path.home())
+    if value == home:
+        return "~"
+    if value.startswith(home + "/"):
+        return "~" + value[len(home) :]
+    return value
 
 
 def _quick_wins(targets: List[ScanTarget]) -> List[Tuple[int, str, str]]:
