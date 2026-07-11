@@ -97,6 +97,18 @@ PYTHONPATH=src python3 -m mac_dev_clean scan
 
 ## Native macOS App
 
+Build or update the copy in `/Applications`, then launch it:
+
+```sh
+./update_app.sh
+```
+
+Run that command again whenever the checkout changes. It rebuilds the latest
+code, safely replaces `/Applications/mac-dev-clean.app`, and reopens the app, so
+there is no need to drag a newly built bundle into Applications. Pass
+`--no-open` to update without launching, or set `MACOS_INSTALL_DIR` to install
+somewhere else.
+
 Launch the SwiftUI interface directly from the checkout:
 
 ```sh

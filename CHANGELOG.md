@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Added `update_app.sh` to rebuild, safely replace, and relaunch the locally
+  installed native app without manually moving bundles into Applications.
+
 ## 0.5.1 - 2026-07-11
 
 - Added a native SwiftUI macOS app with cleanup grouping, selection, confirmation, progress/error states, Finder reveal actions, a separate review-only screen, and automatic rescanning.
