@@ -16,11 +16,46 @@
   <a href="#install"><img src="https://img.shields.io/badge/install-pipx-6650a4.svg" alt="Install with pipx"></a>
 </p>
 
-`mac-dev-clean` scans common developer cache locations and reports disk usage without deleting anything by default. `xcode-sim-prune` focuses on Xcode simulator storage using `xcrun simctl` instead of deleting simulator internals directly.
+## Reclaim your Mac. Keep your confidence.
 
-## Why This Matters
+Developer tools are hungry. Xcode builds, simulator caches, package managers,
+browsers, and abandoned dependencies can quietly consume tens of gigabytes.
+`mac-dev-clean` turns that storage sprawl into a clear, reviewable cleanup plan.
 
-Xcode, simulators, Homebrew, Docker Desktop, npm, pnpm, Gradle, browser caches, and project `node_modules` directories can quietly consume huge amounts of disk space. That hurts more now that Mac storage upgrades are expensive and many developers are still working on 256GB MacBooks or base-model machines with little room for simulator runtimes, build artifacts, and dependency caches. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
+Scan first. See exactly what is safe to clean. Reclaim the space only when you
+are ready.
+
+<p align="center">
+  <img src="docs/images/mac-dev-clean-cleanup.png" alt="mac-dev-clean showing cleanable developer storage grouped by category" width="100%">
+</p>
+
+### A safer way to make room
+
+- **See the win before you clean.** Live totals show cleanable storage, review-only files, selected items, and free disk space at a glance.
+- **Clean by category.** Reclaim Xcode build artifacts, simulator caches, browser and model caches, package caches, and more without hunting through Library folders.
+- **Keep important files out of harm's way.** Archives, installed apps, and other personal storage stay in a separate Review Only lane and are never included in automatic cleanup.
+- **Stay local and in control.** No account, cloud service, analytics, or mystery background cleanup. The app and CLI run on your Mac, with dry-run-first behavior and explicit confirmation.
+
+### Know what not to delete
+
+Some large files deserve judgment, not automation. mac-dev-clean surfaces them
+with context and one-click Finder access, while leaving the final decision to
+you.
+
+<p align="center">
+  <img src="docs/images/mac-dev-clean-review-only.png" alt="mac-dev-clean Review Only screen for files that require a manual decision" width="100%">
+</p>
+
+## Built for developer Macs
+
+The native SwiftUI app and Python CLI share the same cleanup engine and safety
+checks. `mac-dev-clean` reports disk usage without deleting anything by default,
+while `xcode-sim-prune` manages simulator storage through `xcrun simctl` instead
+of reaching into simulator internals directly.
+
+Under the hood, the project includes dry-run output, JSON reports, safety-root
+validation, automated tests, CI, and MIT-licensed source code—so you can inspect
+the tool before trusting it with your disk.
 
 ## Install
 
@@ -59,6 +94,50 @@ Or run without installing:
 ```sh
 PYTHONPATH=src python3 -m mac_dev_clean scan
 ```
+
+## Native macOS App
+
+Launch the SwiftUI interface directly from the checkout:
+
+```sh
+./run_gui.sh
+```
+
+The native app scans through the same Python engine, groups related cleanup
+locations, selects safe cleanable categories by default, requires a macOS
+confirmation before deletion, and rescans after cleanup. Review-only locations
+stay on a separate screen and can be revealed in Finder. An About page includes
+Raven Vector branding, the installed app version, and a link to
+[ravenvector.com](https://ravenvector.com).
+
+Automatic GUI scans avoid project discovery under protected folders such as
+Documents, Desktop, and Downloads, so opening the app does not trigger macOS
+folder-access prompts. Project-local DerivedData remains available from the CLI
+with the explicit `--project-derived-data` cleanup option.
+
+Build a distributable, ad-hoc-signed app bundle:
+
+```sh
+./scripts/build_macos_app.sh
+open dist/mac-dev-clean.app
+```
+
+The bundle contains the Python cleanup engine and uses the existing raven logo.
+Python 3 from Xcode Command Line Tools is still required. Close Xcode, Simulator,
+browsers, and editors before cleaning their caches for the best result.
+
+For distribution to other Macs, follow [DISTRIBUTING.md](DISTRIBUTING.md). The
+release pipeline builds a universal app, signs it with Developer ID and hardened
+runtime, submits it through `notarytool`, staples the accepted ticket, validates
+it with Gatekeeper, and creates the final ZIP.
+
+To build, sign, archive, and notarize through Xcode instead, open
+`macos/MacDevClean.xcodeproj`. Select the `MacDevCleanApp` target, choose your
+Apple Developer team under Signing & Capabilities, then use Product > Archive.
+The shared scheme includes the native app tests and the archive bundles the same
+Python cleanup engine and branding resources as the command-line build script.
+See [Native macOS App](docs/NATIVE_MACOS_APP.md) for the UI architecture,
+privacy boundaries, build checks, and Xcode project workflow.
 
 ## Quick Demo
 
@@ -416,12 +495,13 @@ Run tests:
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests
+swift test --package-path macos
 ```
 
 Run smoke checks:
 
 ```sh
-PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules
+PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules --no-project-derived-data
 PYTHONPATH=src python3 -m mac_dev_clean.xcode_sim_prune list --json
 ```
 
@@ -429,6 +509,20 @@ PYTHONPATH=src python3 -m mac_dev_clean.xcode_sim_prune list --json
 
 Contributions are welcome. Please keep changes aligned with the safety model: scans must be read-only, deletion must be explicit, and new cleanup behavior should include tests.
 
+Project policies and maintainer references:
+
+- [Native macOS App](docs/NATIVE_MACOS_APP.md)
+- [Privacy](PRIVACY.md)
+- [Security](SECURITY.md)
+- [Open Source Publication Audit](docs/OPEN_SOURCE_AUDIT.md)
+- [Branding and Trademarks](BRANDING.md)
+- [Contributing](CONTRIBUTING.md)
+- [Developer ID Distribution](DISTRIBUTING.md)
+- [App Store Connect Content](APP_STORE_CONNECT.md)
+
 ## License
 
-`mac-dev-clean` is open source software released under the MIT License. See [LICENSE](LICENSE).
+The source code and documentation are open source under the MIT License. Raven
+Vector names, logos, and product identity are not licensed for use in modified
+or derivative products; forks should replace them. See [LICENSE](LICENSE) and
+[BRANDING.md](BRANDING.md).

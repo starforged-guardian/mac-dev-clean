@@ -2,10 +2,37 @@ __pycache__/
 .pycache/
 *.py[cod]
 .Python
+.DS_Store
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.pem
+*.cer
+*.key
+*.keychain*
+*.mobileprovision
+*.provisionprofile
 .pytest_cache/
 .ruff_cache/
 .venv/
 venv/
 build/
 dist/
+macos/.build/
+macos/.swiftpm/
+**/xcuserdata/
+*.xcuserstate
+*.xcarchive/
+*.xcresult/
+*.dSYM/
+DerivedData/
 *.egg-info/
+notary-log-*.json
+
+# Only the two brand images embedded by the native app are public artifacts.
+# Layered source artwork and unused variants remain local by default.
+raven_vector_logos/*
+!raven_vector_logos/raven-vector-dark.png
+!raven_vector_logos/raven-vector-dark-trans.png

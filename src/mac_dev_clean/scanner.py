@@ -589,6 +589,7 @@ def scan(
     cwd: Optional[Path] = None,
     search_roots: Optional[Sequence[Path]] = None,
     include_node_modules: bool = True,
+    include_project_derived_data: bool = True,
     node_modules_older_than: Optional[timedelta] = None,
     now: Optional[datetime] = None,
     categories: Optional[Set[str]] = None,
@@ -601,7 +602,13 @@ def scan(
     targets.extend(_scan_fixed_locations(home, categories=categories))
     if _is_default_home(home):
         targets.extend(_scan_system_locations(categories=categories))
-    targets.extend(_scan_glob_locations(home, categories=categories))
+    targets.extend(
+        _scan_glob_locations(
+            home,
+            categories=categories,
+            include_project_derived_data=include_project_derived_data,
+        )
+    )
 
     if include_node_modules and (categories is None or "node-modules" in categories):
         roots = list(search_roots) if search_roots else default_search_roots(home, cwd)
@@ -678,10 +685,14 @@ def _scan_fixed_locations(
 
 
 def _scan_glob_locations(
-    home: Path, categories: Optional[Set[str]] = None
+    home: Path,
+    categories: Optional[Set[str]] = None,
+    include_project_derived_data: bool = True,
 ) -> Iterator[ScanTarget]:
     for spec in GLOB_LOCATIONS:
         if categories is not None and spec.category not in categories:
+            continue
+        if spec.category == "project-derived-data" and not include_project_derived_data:
             continue
         for path in home.glob(spec.relative_glob):
             if path.exists():

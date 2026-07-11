@@ -1,12 +1,15 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
   pull_request:
 
 jobs:
-  test:
+  python:
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -15,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -28,3 +31,26 @@ jobs:
       - name: Compile sources
         run: PYTHONPYCACHEPREFIX="$RUNNER_TEMP/mac-dev-clean-pycache" python -m compileall -q src tests
 
+      - name: Audit public repository files
+        if: matrix.python-version == '3.13'
+        run: ./scripts/audit_public_repo.sh
+
+  native-macos-ui:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run Swift package tests
+        run: swift test --package-path macos
+
+      - name: Build native app without signing
+        run: >-
+          xcodebuild
+          -project macos/MacDevClean.xcodeproj
+          -scheme MacDevCleanApp
+          -configuration Release
+          -destination 'generic/platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          build

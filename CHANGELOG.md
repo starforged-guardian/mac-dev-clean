@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Added a native SwiftUI macOS app with cleanup grouping, selection, confirmation, progress/error states, Finder reveal actions, a separate review-only screen, and automatic rescanning.
+- Added `run_gui.sh` as a stable packaged-app launcher and `scripts/build_macos_app.sh` for an ad-hoc-signed standalone `.app` containing the Python engine and existing raven branding.
+- Prevented automatic GUI scans from touching protected Documents, Desktop, or Downloads folders; explicit project-local DerivedData cleanup remains available from the CLI.
+- Added a universal Developer ID signing and notarization pipeline with secure Keychain credentials, hardened runtime, ticket stapling, Gatekeeper validation, and final ZIP packaging.
+- Added a native About page with appearance-aware Raven Vector branding, app version information, and a link to ravenvector.com.
+- Made cleanup-card disclosure immediate and easier to hit by removing the costly first-use insertion work and turning the full non-checkbox header into a large disclosure target.
+- Changed the native app bundle identifier to `com.ravenvector.mac-dev-clean` to align with Raven Vector branding.
+- Added a shared Xcode project with app and test targets, automatic signing, hardened runtime, universal Release settings, embedded resources/Python engine, and Organizer-ready archiving.
+- Added a guarded release helper that bumps semantic versions, finalizes the changelog, runs tests, pushes `main`, and publishes the corresponding GitHub release.
+- Added native-app privacy, architecture, branding, publication-audit, and maintainer documentation; tightened Git ignores and CI for safe public development.
+- Hardened native Python launching against inherited module/startup injection and enabled Xcode user-script sandboxing for the embedded engine build phase.
+- Kept Python and native Xcode marketing versions synchronized in the release helper.
+- Added ready-to-paste App Store Connect metadata, privacy and review answers,
+  screenshot copy, and a documented sandbox/self-contained-build readiness gate.
+
+## 0.5.0 - 2026-07-11
+
 - Reworked human-readable scan and cleanup output into summary, quick-win, cleanable, and review-only sections with spaced two-line entries, wrapped notes, and home-relative paths.
 - Suppressed report-only locations under 1 MiB so empty directories such as an unused MobileSync backup folder are not presented as meaningful review items.
 
