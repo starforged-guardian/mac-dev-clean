@@ -1,5 +1,27 @@
 import Foundation
 
+struct DiskSpace: Equatable, Sendable {
+    let freeBytes: Int64
+    let totalBytes: Int64
+
+    var free: String { ByteFormatter.string(freeBytes) }
+    var total: String { ByteFormatter.string(totalBytes) }
+
+    static func current(
+        fileManager: FileManager = .default,
+        path: String = FileManager.default.homeDirectoryForCurrentUser.path
+    ) throws -> DiskSpace {
+        let attributes = try fileManager.attributesOfFileSystem(forPath: path)
+        let freeBytes = (attributes[.systemFreeSize] as? NSNumber)?.int64Value
+        let totalBytes = (attributes[.systemSize] as? NSNumber)?.int64Value
+
+        guard let freeBytes, let totalBytes else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return DiskSpace(freeBytes: freeBytes, totalBytes: totalBytes)
+    }
+}
+
 struct ScanReport: Decodable, Sendable {
     let totalBytes: Int64
     let total: String

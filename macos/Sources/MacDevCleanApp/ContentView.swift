@@ -140,6 +140,21 @@ struct ContentView: View {
                 )
             }
 
+            HStack(spacing: 12) {
+                SummaryCard(
+                    title: "Free space",
+                    value: model.diskSpace?.free ?? "—",
+                    symbol: "internaldrive",
+                    color: .cyan
+                )
+                SummaryCard(
+                    title: "Total disk size",
+                    value: model.diskSpace?.total ?? "—",
+                    symbol: "externaldrive",
+                    color: .purple
+                )
+            }
+
             if let error = model.errorMessage {
                 MessageBanner(text: error, symbol: "exclamationmark.triangle.fill", color: .red)
             } else if let notice = model.noticeMessage {

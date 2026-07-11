@@ -19,6 +19,7 @@ final class AppModel: ObservableObject {
     }
 
     @Published private(set) var report: ScanReport?
+    @Published private(set) var diskSpace: DiskSpace?
     @Published private(set) var activity: Activity = .idle
     @Published var selectedFlags: Set<String> = []
     @Published var errorMessage: String?
@@ -28,6 +29,7 @@ final class AppModel: ObservableObject {
     private let startupError: Error?
 
     init(backend: CleanupBackend? = nil) {
+        diskSpace = try? DiskSpace.current()
         if let backend {
             self.backend = backend
             startupError = nil
@@ -86,6 +88,7 @@ final class AppModel: ObservableObject {
 
         activity = .scanning
         errorMessage = nil
+        refreshDiskSpace()
         do {
             let newReport = try await backend.scan()
             report = newReport
@@ -98,6 +101,7 @@ final class AppModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+        refreshDiskSpace()
         activity = .idle
     }
 
@@ -123,6 +127,7 @@ final class AppModel: ObservableObject {
             await scan()
         } catch {
             errorMessage = error.localizedDescription
+            refreshDiskSpace()
             activity = .idle
         }
     }
@@ -143,5 +148,9 @@ final class AppModel: ObservableObject {
         let path = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
         NSWorkspace.shared.open(path)
+    }
+
+    private func refreshDiskSpace() {
+        diskSpace = try? DiskSpace.current()
     }
 }

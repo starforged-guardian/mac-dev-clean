@@ -75,6 +75,16 @@ import Testing
     #expect(ByteFormatter.string(1024 * 1024 * 1024) == "1.0 GB")
 }
 
+@Test func diskSpaceFormatsFreeAndTotalCapacity() {
+    let diskSpace = DiskSpace(
+        freeBytes: 250 * 1024 * 1024 * 1024,
+        totalBytes: 1_000 * 1024 * 1024 * 1024
+    )
+
+    #expect(diskSpace.free == "250.0 GB")
+    #expect(diskSpace.total == "1000.0 GB")
+}
+
 @Test func ravenVectorWebsiteUsesSecureCanonicalURL() {
     #expect(AppMetadata.ravenVectorWebsite.scheme == "https")
     #expect(AppMetadata.ravenVectorWebsite.host == "ravenvector.com")
