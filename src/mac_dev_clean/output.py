@@ -9,6 +9,11 @@ from .model import CleanResult, ScanTarget, human_bytes
 
 SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
     (
+        "XCTest simulator clones",
+        {"xcode-test-devices"},
+        "mac-dev-clean clean --xcode-test-devices --dry-run",
+    ),
+    (
         "Xcode DeviceSupport",
         {"xcode-device-support"},
         "mac-dev-clean clean --xcode-device-support --dry-run",
@@ -22,6 +27,11 @@ SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
         "Xcode documentation cache",
         {"xcode-documentation-cache"},
         "mac-dev-clean clean --xcode-documentation-cache --dry-run",
+    ),
+    (
+        "Xcode device logs",
+        {"xcode-device-logs"},
+        "mac-dev-clean clean --xcode-device-logs --dry-run",
     ),
     (
         "simulator caches",
@@ -62,12 +72,13 @@ SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
 
 def scan_report_json(items: Iterable[ScanTarget]) -> str:
     targets = list(items)
-    cleanable_total = sum(item.size_bytes for item in targets if item.cleanable)
-    report_only_total = sum(item.size_bytes for item in targets if not item.cleanable)
+    cleanable_total = sum(_counted_size(item) for item in targets if item.cleanable)
+    report_only_total = sum(_counted_size(item) for item in targets if not item.cleanable)
+    total_bytes = sum(_counted_size(item) for item in targets)
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "total_bytes": sum(item.size_bytes for item in targets),
-        "total": human_bytes(sum(item.size_bytes for item in targets)),
+        "total_bytes": total_bytes,
+        "total": human_bytes(total_bytes),
         "cleanable_total_bytes": cleanable_total,
         "cleanable_total": human_bytes(cleanable_total),
         "report_only_total_bytes": report_only_total,
@@ -89,11 +100,12 @@ def scan_report_json(items: Iterable[ScanTarget]) -> str:
 
 def clean_report_json(results: Iterable[CleanResult]) -> str:
     items = list(results)
+    total_bytes = sum(_counted_size(item) for item in items if not item.error)
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "dry_run": any(item.dry_run for item in items),
-        "total_bytes": sum(item.size_bytes for item in items if not item.error),
-        "total": human_bytes(sum(item.size_bytes for item in items if not item.error)),
+        "total_bytes": total_bytes,
+        "total": human_bytes(total_bytes),
         "count": len(items),
         "items": [item.to_dict() for item in items],
     }
@@ -108,7 +120,7 @@ def render_scan_table(items: Iterable[ScanTarget]) -> str:
     rows = [
         [
             item.category,
-            human_bytes(item.size_bytes),
+            _display_size(item.category, item.size_bytes),
             _format_modified(item),
             "yes" if item.cleanable else "no",
             str(item.path),
@@ -116,7 +128,7 @@ def render_scan_table(items: Iterable[ScanTarget]) -> str:
         for item in targets
     ]
     body = _render_table(["Category", "Size", "Modified", "Cleanable", "Path"], rows)
-    total = human_bytes(sum(item.size_bytes for item in targets))
+    total = human_bytes(sum(_counted_size(item) for item in targets))
     summary = _render_scan_summary(targets, total)
     quick_wins = _render_quick_wins(targets)
     sections = [body, summary]
@@ -136,6 +148,8 @@ def render_clean_table(results: Iterable[CleanResult]) -> str:
             status = "error"
         elif item.dry_run:
             status = "would remove"
+        elif item.removed and item.category == "xcode-test-devices":
+            status = "delete requested"
         elif item.removed:
             status = "removed"
         else:
@@ -144,14 +158,21 @@ def render_clean_table(results: Iterable[CleanResult]) -> str:
             [
                 status,
                 item.category,
-                human_bytes(item.size_bytes),
+                _display_size(item.category, item.size_bytes),
                 str(item.path),
             ]
         )
 
     body = _render_table(["Status", "Category", "Size", "Path"], rows)
-    total = human_bytes(sum(item.size_bytes for item in items if not item.error))
-    return f"{body}\n\nTotal selected: {total} across {len(items)} item(s)"
+    total = human_bytes(sum(_counted_size(item) for item in items if not item.error))
+    output = f"{body}\n\nTotal selected: {total} across {len(items)} item(s)"
+    if any(item.category == "xcode-test-devices" and item.removed for item in items):
+        output += (
+            "\n\nCoreSimulator accepted the XCTest clone deletion request. "
+            "APFS may reclaim shared blocks in the background, so df and Finder "
+            "free-space values can take several minutes to increase."
+        )
+    return output
 
 
 def _render_table(headers: List[str], rows: List[List[str]]) -> str:
@@ -170,8 +191,8 @@ def _render_table(headers: List[str], rows: List[List[str]]) -> str:
 
 
 def _render_scan_summary(targets: List[ScanTarget], total: str) -> str:
-    cleanable_total = sum(item.size_bytes for item in targets if item.cleanable)
-    report_only_total = sum(item.size_bytes for item in targets if not item.cleanable)
+    cleanable_total = sum(_counted_size(item) for item in targets if item.cleanable)
+    report_only_total = sum(_counted_size(item) for item in targets if not item.cleanable)
     lines = [f"Total: {total} across {len(targets)} item(s)"]
     lines.append(
         "Potential cleanup: "
@@ -197,7 +218,7 @@ def _quick_wins(targets: List[ScanTarget]) -> List[Tuple[int, str, str]]:
     wins: List[Tuple[int, str, str]] = []
     for label, categories, command in SCAN_RECOMMENDATIONS:
         size = sum(
-            item.size_bytes
+            _counted_size(item)
             for item in targets
             if item.cleanable and item.category in categories
         )
@@ -211,3 +232,15 @@ def _format_modified(item: ScanTarget) -> str:
     if item.modified_at is None:
         return "unknown"
     return item.modified_at.astimezone(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _display_size(category: str, size_bytes: int) -> str:
+    if category == "xcode-test-devices":
+        return "shared/unknown"
+    return human_bytes(size_bytes)
+
+
+def _counted_size(item: object) -> int:
+    if getattr(item, "category", "") == "xcode-test-devices":
+        return 0
+    return int(getattr(item, "size_bytes", 0))

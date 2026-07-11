@@ -85,6 +85,31 @@ class CliTests(unittest.TestCase):
         self.assertIn("Canceled. Nothing deleted.", stdout.getvalue())
         self.assertIn("Scanning developer cache locations", stderr.getvalue())
 
+    def test_default_command_includes_xcode_test_device_clones(self):
+        clone_target = ScanTarget(
+            category="xcode-test-devices",
+            label="XCTest simulator clones",
+            path=Path("/tmp/home/Library/Developer/XCTestDevices"),
+            size_bytes=2 * 1024 * 1024 * 1024,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="simctl-device-set",
+            safety_root=Path("/tmp/home"),
+        )
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch("mac_dev_clean.cli.scan", return_value=[clone_target]))
+            clean_targets = stack.enter_context(
+                patch("mac_dev_clean.cli.clean_targets", return_value=[])
+            )
+            stack.enter_context(patch("builtins.input", return_value="y"))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+            code = main([])
+
+        self.assertEqual(code, 0)
+        clean_targets.assert_called_once_with([clone_target])
+
     def test_interactive_yes_cleans_cleanable_targets(self):
         cleanable = ScanTarget(
             category="brew-cache",
@@ -167,6 +192,42 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         clean_targets.assert_called_once_with([target], dry_run=True)
         self.assertIn("Scanning developer cache locations", stderr.getvalue())
+
+    def test_xcode_caches_flag_includes_test_device_clones_and_device_logs(self):
+        clone_target = ScanTarget(
+            category="xcode-test-devices",
+            label="XCTest simulator clones",
+            path=Path("/tmp/home/Library/Developer/XCTestDevices"),
+            size_bytes=1,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="simctl-device-set",
+            safety_root=Path("/tmp/home"),
+        )
+        log_target = ScanTarget(
+            category="xcode-device-logs",
+            label="Xcode device logs",
+            path=Path("/tmp/home/Library/Developer/Xcode/DeviceLogs"),
+            size_bytes=1,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="contents",
+            safety_root=Path("/tmp/home"),
+        )
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                patch("mac_dev_clean.cli.scan", return_value=[clone_target, log_target])
+            )
+            clean_targets = stack.enter_context(
+                patch("mac_dev_clean.cli.clean_targets", return_value=[])
+            )
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+            code = main(["clean", "--xcode-caches", "--dry-run"])
+
+        self.assertEqual(code, 0)
+        clean_targets.assert_called_once_with([clone_target, log_target], dry_run=True)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,17 @@ FLAG_TO_CATEGORIES = {
     "xcode_derived_data": {"xcode-derived-data", "xcode-module-cache"},
     "xcode_documentation_cache": {"xcode-documentation-cache"},
     "xcode_device_support": {"xcode-device-support"},
+    "xcode_device_logs": {"xcode-device-logs"},
+    "xcode_test_devices": {"xcode-test-devices"},
+    "xcode_caches": {
+        "xcode-derived-data",
+        "xcode-module-cache",
+        "xcode-documentation-cache",
+        "xcode-device-support",
+        "xcode-device-logs",
+        "xcode-test-devices",
+        "simulator-caches",
+    },
     "simulator_caches": {"simulator-caches"},
     "brew_cache": {"brew-cache"},
     "npm_cache": {"npm-cache"},
@@ -95,6 +106,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--xcode-device-support",
         action="store_true",
         help="Clean Xcode DeviceSupport symbols and files recreated by Xcode.",
+    )
+    clean_parser.add_argument(
+        "--xcode-device-logs",
+        action="store_true",
+        help="Clean imported Xcode device logs and diagnostics.",
+    )
+    clean_parser.add_argument(
+        "--xcode-test-devices",
+        action="store_true",
+        help="Delete shutdown XCTest simulator clones through simctl.",
+    )
+    clean_parser.add_argument(
+        "--xcode-caches",
+        action="store_true",
+        help="Clean all supported Xcode, XCTest clone, and simulator cache categories.",
     )
     clean_parser.add_argument(
         "--simulator-caches",
@@ -241,6 +267,7 @@ def run_clean(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         include_node_modules=include_node_modules,
         node_modules_older_than=older_than,
         now=datetime.now(timezone.utc),
+        categories=selected,
     )
     targets = [item for item in items if item.category in selected and item.cleanable]
     results = clean_targets(targets, dry_run=args.dry_run)

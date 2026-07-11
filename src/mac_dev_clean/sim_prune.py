@@ -142,6 +142,13 @@ def load_inventory(runner: Runner = run_simctl) -> Inventory:
     return Inventory(devices=devices, runtimes=runtimes)
 
 
+def load_device_set_inventory(device_set: Path, runner: Runner = run_simctl) -> Inventory:
+    devices = parse_devices_json(
+        runner(["--set", str(device_set), "list", "--json", "devices"])
+    )
+    return Inventory(devices=devices, runtimes=[])
+
+
 def parse_devices_json(raw: str) -> List[Device]:
     payload = json.loads(raw or "{}")
     devices_by_runtime = payload.get("devices", {})
@@ -289,6 +296,36 @@ def delete_devices(
     stdout = "" if dry_run or not targets else runner(args)
     return ActionReport(
         action="delete-devices",
+        dry_run=dry_run,
+        command=command,
+        targets=[device.to_dict() for device in targets],
+        stdout=stdout.strip(),
+    )
+
+
+def delete_test_clones(
+    inventory: Inventory,
+    device_set: Path,
+    runner: Runner = run_simctl,
+    dry_run: bool = False,
+) -> ActionReport:
+    active = [device for device in inventory.devices if device.state.lower() != "shutdown"]
+    if active:
+        raise ValueError(
+            "refusing to delete XCTest simulator clones while one or more are not shutdown; "
+            "stop tests and close Xcode first"
+        )
+
+    targets = [
+        device
+        for device in inventory.devices
+        if device.state.lower() == "shutdown" and is_safe_simctl_udid(device.udid)
+    ]
+    args = ["--set", str(device_set), "delete", *[device.udid for device in targets]]
+    command = [XCRUN, "simctl", *args]
+    stdout = "" if dry_run or not targets else runner(args)
+    return ActionReport(
+        action="delete-test-clones",
         dry_run=dry_run,
         command=command,
         targets=[device.to_dict() for device in targets],

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 from .model import CleanResult, ScanTarget
+from .sim_prune import SimctlError, delete_test_clones, load_device_set_inventory
 
 
 DANGEROUS_NAMES = {"", ".", ".."}
@@ -16,6 +17,8 @@ CATEGORY_DELETE_MODES = {
     "xcode-module-cache": "contents",
     "xcode-documentation-cache": "contents",
     "xcode-device-support": "contents",
+    "xcode-device-logs": "contents",
+    "xcode-test-devices": "simctl-device-set",
     "simulator-caches": "contents",
     "brew-cache": "contents",
     "npm-cache": "contents",
@@ -35,6 +38,7 @@ FIXED_CATEGORY_SUFFIXES = {
     "xcode-module-cache": (("Library", "Developer", "Xcode", "ModuleCache.noindex"),),
     "xcode-documentation-cache": (
         ("Library", "Developer", "Xcode", "DocumentationCache"),
+        ("Library", "Developer", "Xcode", "DocumentationIndex"),
     ),
     "xcode-device-support": (
         ("Library", "Developer", "Xcode", "iOS DeviceSupport"),
@@ -42,6 +46,8 @@ FIXED_CATEGORY_SUFFIXES = {
         ("Library", "Developer", "Xcode", "watchOS DeviceSupport"),
         ("Library", "Developer", "Xcode", "visionOS DeviceSupport"),
     ),
+    "xcode-device-logs": (("Library", "Developer", "Xcode", "DeviceLogs"),),
+    "xcode-test-devices": (("Library", "Developer", "XCTestDevices"),),
     "simulator-caches": (
         ("Library", "Developer", "CoreSimulator", "Caches"),
         ("Library", "Logs", "CoreSimulator"),
@@ -103,6 +109,9 @@ def clean_target(target: ScanTarget, dry_run: bool = False) -> CleanResult:
             _remove_contents(target.path)
         elif target.delete_mode == "tree":
             _remove_path(target.path)
+        elif target.delete_mode == "simctl-device-set":
+            inventory = load_device_set_inventory(target.path)
+            delete_test_clones(inventory, target.path)
         else:
             return _result(
                 target,
@@ -110,7 +119,7 @@ def clean_target(target: ScanTarget, dry_run: bool = False) -> CleanResult:
                 removed=False,
                 error=f"unsupported delete mode: {target.delete_mode}",
             )
-    except OSError as exc:
+    except (OSError, SimctlError, ValueError) as exc:
         return _result(target, dry_run=False, removed=False, error=str(exc))
 
     return _result(target, dry_run=False, removed=True)
@@ -152,6 +161,8 @@ def validate_target(target: ScanTarget) -> str:
             return "refusing to clean a non-node_modules tree"
     if target.delete_mode == "contents" and not path.is_dir():
         return "contents mode requires a directory"
+    if target.delete_mode == "simctl-device-set" and not path.is_dir():
+        return "simctl device-set mode requires a directory"
 
     return ""
 

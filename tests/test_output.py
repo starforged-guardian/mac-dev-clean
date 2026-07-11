@@ -2,8 +2,8 @@ import json
 import unittest
 from pathlib import Path
 
-from mac_dev_clean.model import ScanTarget
-from mac_dev_clean.output import render_scan_table, scan_report_json
+from mac_dev_clean.model import CleanResult, ScanTarget
+from mac_dev_clean.output import render_clean_table, render_scan_table, scan_report_json
 
 
 class OutputTests(unittest.TestCase):
@@ -76,6 +76,37 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(payload["cleanable_total_bytes"], 10)
         self.assertEqual(payload["report_only_total_bytes"], 25)
         self.assertEqual(payload["recommendations"][0]["command"], "mac-dev-clean clean --brew-cache --dry-run")
+
+    def test_xctest_clone_size_is_presented_as_shared_unknown(self):
+        target = ScanTarget(
+            category="xcode-test-devices",
+            label="XCTest simulator clones",
+            path=Path("/tmp/home/Library/Developer/XCTestDevices"),
+            size_bytes=759 * 1024 * 1024 * 1024,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="simctl-device-set",
+        )
+
+        output = render_scan_table([target])
+
+        self.assertIn("shared/unknown", output)
+        self.assertNotIn("759.0 GB", output)
+
+    def test_xctest_cleanup_reports_async_delete_request(self):
+        result = CleanResult(
+            category="xcode-test-devices",
+            label="XCTest simulator clones",
+            path=Path("/tmp/home/Library/Developer/XCTestDevices"),
+            size_bytes=0,
+            dry_run=False,
+            removed=True,
+        )
+
+        output = render_clean_table([result])
+
+        self.assertIn("delete requested", output)
+        self.assertIn("APFS may reclaim shared blocks in the background", output)
 
 
 if __name__ == "__main__":

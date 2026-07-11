@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Added scanning and dry-run-first cleanup for `~/Library/Developer/XCTestDevices`, where parallel Xcode tests can leave hundreds of multi-gigabyte simulator clones.
+- Delegated XCTest clone deletion to `simctl` with the dedicated device set instead of deleting simulator internals directly, and refuse cleanup while any clone is booted.
+- Added Xcode device-log cleanup plus `--xcode-caches` as a broad explicit cleanup option for supported data under `~/Library/Developer`.
+- Kept the no-argument `mac-dev-clean` shortcut inclusive of XCTest clone cleanup, with regression coverage so no explicit category flag is required.
+- Stopped presenting the sum of `simctl` XCTest clone logical sizes as reclaimable disk usage; clone storage is now labeled `shared/unknown` because APFS sharing can make the logical total vastly exceed physical allocation.
+- Updated `run_local.sh` to invoke the standard one-confirmation cleanup instead of hard-coding clone-only commands.
+- Report XCTest clone cleanup as an asynchronous delete request and explain that CoreSimulator/APFS free-space reclamation may lag for several minutes.
+
 ## 0.4.0 - 2026-06-07
 
 - Skipped cleanable scan targets under 1 MiB to avoid recommending no-op cleanup for tiny cache directories.

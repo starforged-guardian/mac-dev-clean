@@ -3,10 +3,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import os
 import unittest
+from unittest.mock import patch
 
 from mac_dev_clean.cleaner import clean_target
 from mac_dev_clean.model import ScanTarget
-from mac_dev_clean.scanner import find_node_modules, scan
+from mac_dev_clean.scanner import _location_measurement, find_node_modules, scan
+from mac_dev_clean.sim_prune import Device, Inventory
 
 
 LARGE_PAYLOAD_BYTES = 2 * 1024 * 1024
@@ -27,6 +29,25 @@ class ScannerCleanerTests(unittest.TestCase):
             target = next(item for item in items if item.category == "xcode-derived-data")
             self.assertGreaterEqual(target.size_bytes, 1024)
             self.assertTrue(target.cleanable)
+
+    def test_scan_can_limit_work_to_selected_categories(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            derived_data = home / "Library/Developer/Xcode/DerivedData/App"
+            browser_cache = home / "Library/Caches/Google/Chrome"
+            derived_data.mkdir(parents=True)
+            browser_cache.mkdir(parents=True)
+            (derived_data / "artifact.o").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+            (browser_cache / "cache.bin").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+
+            items = scan(
+                home=home,
+                cwd=home,
+                include_node_modules=False,
+                categories={"xcode-derived-data"},
+            )
+
+            self.assertEqual({item.category for item in items}, {"xcode-derived-data"})
 
     def test_dry_run_does_not_delete_contents(self):
         with TemporaryDirectory() as temp:
@@ -117,6 +138,86 @@ class ScannerCleanerTests(unittest.TestCase):
             self.assertTrue(support_target.path.exists())
             self.assertFalse(symbol_cache.exists())
             self.assertTrue(archive.exists())
+
+    def test_scan_finds_xcode_device_logs_and_test_device_clones(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            device_logs = home / "Library/Developer/Xcode/DeviceLogs/iPhone/logs"
+            test_devices = home / "Library/Developer/XCTestDevices/AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+            device_logs.mkdir(parents=True)
+            test_devices.mkdir(parents=True)
+            (device_logs / "device.log").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+            (test_devices / "device.plist").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            categories = {item.category for item in items}
+            self.assertIn("xcode-device-logs", categories)
+            self.assertIn("xcode-test-devices", categories)
+            clone_target = next(item for item in items if item.category == "xcode-test-devices")
+            self.assertEqual(clone_target.delete_mode, "simctl-device-set")
+
+    def test_default_xctest_device_set_does_not_report_logical_clone_size_as_disk_use(self):
+        device_set = Path.home() / "Library/Developer/XCTestDevices"
+        device = Device(
+            runtime_identifier="com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+            name="Clone 1 of iPhone 17 Pro",
+            udid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+            state="Shutdown",
+            is_available=True,
+            last_booted_at=None,
+            data_size_bytes=4 * 1024 * 1024 * 1024,
+            log_size_bytes=0,
+        )
+
+        with patch(
+            "mac_dev_clean.scanner.load_device_set_inventory",
+            return_value=Inventory(devices=[device], runtimes=[]),
+        ):
+            size, include_when_small = _location_measurement(
+                device_set, "xcode-test-devices"
+            )
+
+        self.assertEqual(size, 0)
+        self.assertTrue(include_when_small)
+
+    def test_clean_xcode_test_devices_uses_simctl_device_set(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            device_set = home / "Library/Developer/XCTestDevices"
+            device_set.mkdir(parents=True)
+            target = ScanTarget(
+                category="xcode-test-devices",
+                label="XCTest simulator clones",
+                path=device_set,
+                size_bytes=LARGE_PAYLOAD_BYTES,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="simctl-device-set",
+                safety_root=home,
+            )
+            device = Device(
+                runtime_identifier="com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+                name="Clone 1 of iPhone 17 Pro",
+                udid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+                state="Shutdown",
+                is_available=True,
+                last_booted_at=None,
+                data_size_bytes=LARGE_PAYLOAD_BYTES,
+                log_size_bytes=0,
+            )
+            inventory = Inventory(devices=[device], runtimes=[])
+
+            with patch(
+                "mac_dev_clean.cleaner.load_device_set_inventory", return_value=inventory
+            ) as load_inventory, patch(
+                "mac_dev_clean.cleaner.delete_test_clones"
+            ) as delete_clones:
+                result = clean_target(target)
+
+            self.assertTrue(result.removed)
+            load_inventory.assert_called_once_with(device_set)
+            delete_clones.assert_called_once_with(inventory, device_set)
 
     def test_scan_finds_package_browser_and_report_only_tool_caches(self):
         with TemporaryDirectory() as temp:

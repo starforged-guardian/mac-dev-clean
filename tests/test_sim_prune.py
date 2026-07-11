@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
 import json
+from pathlib import Path
 import unittest
 
 from mac_dev_clean.sim_prune import (
     Inventory,
     RuntimeImage,
     delete_devices,
+    delete_test_clones,
     age_to_days,
     delete_runtimes,
     delete_unavailable,
@@ -253,6 +255,42 @@ class SimPruneTests(unittest.TestCase):
 
         self.assertEqual(report.command, ["/usr/bin/xcrun", "simctl", "delete", IPHONE_17_UDID])
         self.assertEqual([target["udid"] for target in report.targets], [IPHONE_17_UDID])
+
+    def test_delete_test_clones_targets_shutdown_devices_in_custom_device_set(self):
+        devices = [
+            device
+            for device in parse_devices_json(NAMED_DEVICES_JSON)
+            if device.state == "Shutdown"
+        ]
+        inventory = Inventory(devices=devices, runtimes=[])
+        device_set = Path("/Users/test/Library/Developer/XCTestDevices")
+
+        report = delete_test_clones(
+            inventory,
+            device_set,
+            runner=lambda _args: self.fail("runner called"),
+            dry_run=True,
+        )
+
+        self.assertEqual(report.action, "delete-test-clones")
+        self.assertEqual(
+            report.command[:5],
+            ["/usr/bin/xcrun", "simctl", "--set", str(device_set), "delete"],
+        )
+        self.assertEqual(
+            [target["udid"] for target in report.targets],
+            [IPHONE_17_UDID, IPHONE_17_PRO_UDID],
+        )
+
+    def test_delete_test_clones_refuses_booted_device_set(self):
+        inventory = Inventory(devices=parse_devices_json(DEVICES_JSON), runtimes=[])
+
+        with self.assertRaisesRegex(ValueError, "one or more are not shutdown"):
+            delete_test_clones(
+                inventory,
+                Path("/Users/test/Library/Developer/XCTestDevices"),
+                runner=lambda _args: self.fail("runner called"),
+            )
 
     def test_age_to_days_rounds_up_partial_days(self):
         self.assertEqual(age_to_days(timedelta(hours=12)), 1)
