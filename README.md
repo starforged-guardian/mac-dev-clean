@@ -16,11 +16,46 @@
   <a href="#install"><img src="https://img.shields.io/badge/install-pipx-6650a4.svg" alt="Install with pipx"></a>
 </p>
 
-`mac-dev-clean` scans common developer cache locations and reports disk usage without deleting anything by default. `xcode-sim-prune` focuses on Xcode simulator storage using `xcrun simctl` instead of deleting simulator internals directly.
+## Reclaim your Mac. Keep your confidence.
 
-## Why This Matters
+Developer tools are hungry. Xcode builds, simulator caches, package managers,
+browsers, and abandoned dependencies can quietly consume tens of gigabytes.
+`mac-dev-clean` turns that storage sprawl into a clear, reviewable cleanup plan.
 
-Xcode, simulators, Homebrew, Docker Desktop, npm, pnpm, Gradle, browser caches, and project `node_modules` directories can quietly consume huge amounts of disk space. That hurts more now that Mac storage upgrades are expensive and many developers are still working on 256GB MacBooks or base-model machines with little room for simulator runtimes, build artifacts, and dependency caches. Developers often recover that space with risky shell snippets copied from posts, chats, or old dotfiles. This project turns those cleanups into tested, explicit commands with dry-run output, JSON reports, safety-root checks, CI, and MIT-licensed source code.
+Scan first. See exactly what is safe to clean. Reclaim the space only when you
+are ready.
+
+<p align="center">
+  <img src="docs/images/mac-dev-clean-cleanup.png" alt="mac-dev-clean showing cleanable developer storage grouped by category" width="100%">
+</p>
+
+### A safer way to make room
+
+- **See the win before you clean.** Live totals show cleanable storage, review-only files, selected items, and free disk space at a glance.
+- **Clean by category.** Reclaim Xcode build artifacts, simulator caches, browser and model caches, package caches, and more without hunting through Library folders.
+- **Keep important files out of harm's way.** Archives, installed apps, and other personal storage stay in a separate Review Only lane and are never included in automatic cleanup.
+- **Stay local and in control.** No account, cloud service, analytics, or mystery background cleanup. The app and CLI run on your Mac, with dry-run-first behavior and explicit confirmation.
+
+### Know what not to delete
+
+Some large files deserve judgment, not automation. mac-dev-clean surfaces them
+with context and one-click Finder access, while leaving the final decision to
+you.
+
+<p align="center">
+  <img src="docs/images/mac-dev-clean-review-only.png" alt="mac-dev-clean Review Only screen for files that require a manual decision" width="100%">
+</p>
+
+## Built for developer Macs
+
+The native SwiftUI app and Python CLI share the same cleanup engine and safety
+checks. `mac-dev-clean` reports disk usage without deleting anything by default,
+while `xcode-sim-prune` manages simulator storage through `xcrun simctl` instead
+of reaching into simulator internals directly.
+
+Under the hood, the project includes dry-run output, JSON reports, safety-root
+validation, automated tests, CI, and MIT-licensed source code—so you can inspect
+the tool before trusting it with your disk.
 
 ## Install
 
