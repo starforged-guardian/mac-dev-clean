@@ -236,13 +236,31 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../src/mac_dev_clean",
+				"$(SRCROOT)/../src/mac_dev_clean/__init__.py",
+				"$(SRCROOT)/../src/mac_dev_clean/__main__.py",
+				"$(SRCROOT)/../src/mac_dev_clean/age.py",
+				"$(SRCROOT)/../src/mac_dev_clean/cleaner.py",
+				"$(SRCROOT)/../src/mac_dev_clean/cli.py",
+				"$(SRCROOT)/../src/mac_dev_clean/model.py",
+				"$(SRCROOT)/../src/mac_dev_clean/output.py",
+				"$(SRCROOT)/../src/mac_dev_clean/scanner.py",
+				"$(SRCROOT)/../src/mac_dev_clean/sim_prune.py",
+				"$(SRCROOT)/../src/mac_dev_clean/xcode_sim_prune.py",
 			);
 			name = "Bundle Python cleanup engine";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/__init__.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/__main__.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/age.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/cleaner.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/cli.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/model.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/output.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/scanner.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/sim_prune.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/xcode_sim_prune.py",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
