@@ -60,6 +60,50 @@ Or run without installing:
 PYTHONPATH=src python3 -m mac_dev_clean scan
 ```
 
+## Native macOS App
+
+Launch the SwiftUI interface directly from the checkout:
+
+```sh
+./run_gui.sh
+```
+
+The native app scans through the same Python engine, groups related cleanup
+locations, selects safe cleanable categories by default, requires a macOS
+confirmation before deletion, and rescans after cleanup. Review-only locations
+stay on a separate screen and can be revealed in Finder. An About page includes
+Raven Vector branding, the installed app version, and a link to
+[ravenvector.com](https://ravenvector.com).
+
+Automatic GUI scans avoid project discovery under protected folders such as
+Documents, Desktop, and Downloads, so opening the app does not trigger macOS
+folder-access prompts. Project-local DerivedData remains available from the CLI
+with the explicit `--project-derived-data` cleanup option.
+
+Build a distributable, ad-hoc-signed app bundle:
+
+```sh
+./scripts/build_macos_app.sh
+open dist/mac-dev-clean.app
+```
+
+The bundle contains the Python cleanup engine and uses the existing raven logo.
+Python 3 from Xcode Command Line Tools is still required. Close Xcode, Simulator,
+browsers, and editors before cleaning their caches for the best result.
+
+For distribution to other Macs, follow [DISTRIBUTING.md](DISTRIBUTING.md). The
+release pipeline builds a universal app, signs it with Developer ID and hardened
+runtime, submits it through `notarytool`, staples the accepted ticket, validates
+it with Gatekeeper, and creates the final ZIP.
+
+To build, sign, archive, and notarize through Xcode instead, open
+`macos/MacDevClean.xcodeproj`. Select the `MacDevCleanApp` target, choose your
+Apple Developer team under Signing & Capabilities, then use Product > Archive.
+The shared scheme includes the native app tests and the archive bundles the same
+Python cleanup engine and branding resources as the command-line build script.
+See [Native macOS App](docs/NATIVE_MACOS_APP.md) for the UI architecture,
+privacy boundaries, build checks, and Xcode project workflow.
+
 ## Quick Demo
 
 Find developer cache usage:
@@ -416,12 +460,13 @@ Run tests:
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests
+swift test --package-path macos
 ```
 
 Run smoke checks:
 
 ```sh
-PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules
+PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules --no-project-derived-data
 PYTHONPATH=src python3 -m mac_dev_clean.xcode_sim_prune list --json
 ```
 
@@ -429,6 +474,20 @@ PYTHONPATH=src python3 -m mac_dev_clean.xcode_sim_prune list --json
 
 Contributions are welcome. Please keep changes aligned with the safety model: scans must be read-only, deletion must be explicit, and new cleanup behavior should include tests.
 
+Project policies and maintainer references:
+
+- [Native macOS App](docs/NATIVE_MACOS_APP.md)
+- [Privacy](PRIVACY.md)
+- [Security](SECURITY.md)
+- [Open Source Publication Audit](docs/OPEN_SOURCE_AUDIT.md)
+- [Branding and Trademarks](BRANDING.md)
+- [Contributing](CONTRIBUTING.md)
+- [Developer ID Distribution](DISTRIBUTING.md)
+- [App Store Connect Content](APP_STORE_CONNECT.md)
+
 ## License
 
-`mac-dev-clean` is open source software released under the MIT License. See [LICENSE](LICENSE).
+The source code and documentation are open source under the MIT License. Raven
+Vector names, logos, and product identity are not licensed for use in modified
+or derivative products; forks should replace them. See [LICENSE](LICENSE) and
+[BRANDING.md](BRANDING.md).

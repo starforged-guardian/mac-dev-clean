@@ -58,6 +58,20 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("No supported developer cache locations found.", stdout.getvalue())
 
+    def test_scan_can_skip_project_derived_data_discovery(self):
+        with contextlib.ExitStack() as stack:
+            scan_mock = stack.enter_context(
+                patch("mac_dev_clean.cli.scan", return_value=[])
+            )
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+            code = main(
+                ["scan", "--no-node-modules", "--no-project-derived-data"]
+            )
+
+        self.assertEqual(code, 0)
+        self.assertFalse(scan_mock.call_args.kwargs["include_project_derived_data"])
+
     def test_default_command_cancel_does_not_clean(self):
         target = ScanTarget(
             category="brew-cache",

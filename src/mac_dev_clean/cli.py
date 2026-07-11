@@ -83,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
         command="interactive",
         search_root=[],
         include_node_modules=False,
+        no_project_derived_data=False,
         older_than=None,
     )
     subparsers = parser.add_subparsers(dest="command")
@@ -253,6 +254,11 @@ def add_scan_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     parser.add_argument("--older-than", help="Only include node_modules older than this age, such as 60d or 2w.")
     parser.add_argument("--no-node-modules", action="store_true", help="Skip recursive node_modules discovery.")
+    parser.add_argument(
+        "--no-project-derived-data",
+        action="store_true",
+        help="Skip project-local DerivedData discovery under top-level home folders.",
+    )
 
 
 def add_scan_root_options(parser: argparse.ArgumentParser) -> None:
@@ -271,6 +277,7 @@ def run_scan(args: argparse.Namespace) -> int:
     items = scan(
         search_roots=args.search_root or None,
         include_node_modules=not args.no_node_modules,
+        include_project_derived_data=not args.no_project_derived_data,
         node_modules_older_than=older_than,
         now=datetime.now(timezone.utc),
     )

@@ -305,6 +305,23 @@ class ScannerCleanerTests(unittest.TestCase):
             self.assertFalse(derived_data.exists())
             self.assertTrue(forged.exists())
 
+    def test_scan_can_skip_project_local_derived_data_discovery(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            derived_data = home / "Documents/DerivedDataSim"
+            (derived_data / "Build").mkdir(parents=True)
+            (derived_data / "info.plist").write_text("plist")
+            (derived_data / "Build/artifact.o").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+
+            items = scan(
+                home=home,
+                cwd=home,
+                include_node_modules=False,
+                include_project_derived_data=False,
+            )
+
+            self.assertNotIn("project-derived-data", {item.category for item in items})
+
     def test_system_simulator_cache_requires_exact_supported_path(self):
         expected_path = Path("/Library/Developer/CoreSimulator/Caches/dyld")
         expected_root = Path("/Library/Developer/CoreSimulator/Caches")
