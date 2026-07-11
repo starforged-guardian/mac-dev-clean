@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.5.1 - 2026-07-11
+
 - Added a native SwiftUI macOS app with cleanup grouping, selection, confirmation, progress/error states, Finder reveal actions, a separate review-only screen, and automatic rescanning.
 - Added `run_gui.sh` as a stable packaged-app launcher and `scripts/build_macos_app.sh` for an ad-hoc-signed standalone `.app` containing the Python engine and existing raven branding.
 - Prevented automatic GUI scans from touching protected Documents, Desktop, or Downloads folders; explicit project-local DerivedData cleanup remains available from the CLI.
