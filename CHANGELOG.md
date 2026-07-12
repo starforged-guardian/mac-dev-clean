@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.5.2 - 2026-07-11
+
 - Added `update_app.sh` to rebuild, safely replace, and relaunch the locally
   installed native app without manually moving bundles into Applications.
 

@@ -43,7 +43,7 @@ targets:
         EXECUTABLE_NAME: MacDevCleanApp
         INFOPLIST_FILE: AppBundle/Info.plist
         GENERATE_INFOPLIST_FILE: NO
-        MARKETING_VERSION: "0.5.1"
+        MARKETING_VERSION: "0.5.2"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: YES
