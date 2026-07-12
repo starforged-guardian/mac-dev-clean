@@ -10,7 +10,8 @@
 
 <p align="center">
   <a href="https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml"><img src="https://github.com/starforged-guardian/mac-dev-clean/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Code-MIT-yellow.svg" alt="Code license: MIT"></a>
+  <a href="BRANDING.md"><img src="https://img.shields.io/badge/Brand_assets-All_rights_reserved-red.svg" alt="Brand assets: All rights reserved"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.9%2B-blue.svg" alt="Python 3.9+"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/platform-macOS-lightgrey.svg" alt="macOS"></a>
   <a href="#install"><img src="https://img.shields.io/badge/install-pipx-6650a4.svg" alt="Install with pipx"></a>
@@ -535,6 +536,7 @@ Project policies and maintainer references:
 ## License
 
 The source code and documentation are open source under the MIT License. Raven
-Vector names, logos, and product identity are not licensed for use in modified
-or derivative products; forks should replace them. See [LICENSE](LICENSE) and
-[BRANDING.md](BRANDING.md).
+Vector names, logos, app icons, and product identity are expressly excluded
+from that license and remain all rights reserved. Forks and modified builds must
+remove or replace them before distribution. See [LICENSE](LICENSE) and
+[BRANDING.md](BRANDING.md) for the exact scope and limited permissions.

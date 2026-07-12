@@ -9,12 +9,14 @@
 /* Begin PBXBuildFile section */
 		07B989EA731F080ACF7B5660 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FB0C1A26CD553D8B98C60FF /* AppModel.swift */; };
 		084778E0523E221526834A90 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CCAA44421685885637FCEE8 /* ContentView.swift */; };
+		3ABD1BBA7B7ED0DEA8CA3DAA /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = E6910769539D2B91EA7C3414 /* LICENSE */; };
 		471559FF3A502EBBE2A230FA /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C10CDD9C7DCB79567282E1 /* ModelTests.swift */; };
 		4B523DE68C2B7E00B0E59B51 /* raven-vector-dark-trans.png in Resources */ = {isa = PBXBuildFile; fileRef = 753C19C40473BFED38118EE9 /* raven-vector-dark-trans.png */; };
 		5B0FFFC4125E606E22CF1669 /* raven-vector-dark.png in Resources */ = {isa = PBXBuildFile; fileRef = F949198D7517F916F78D1A5C /* raven-vector-dark.png */; };
 		64016BFD0BFAFC177C109DB8 /* mac-dev-clean-logo.png in Resources */ = {isa = PBXBuildFile; fileRef = BE5468581F43DFF47C84FEB2 /* mac-dev-clean-logo.png */; };
 		779945226F2B5F48931596A8 /* MacDevCleanApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611A386D3BFBC22F5FFAB41C /* MacDevCleanApp.swift */; };
 		7E487615C68D3C80551FEE30 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F1CCAB5B17153BFAEB31CC /* Models.swift */; };
+		A6E759F9352948A9FDB8C25E /* BRANDING.md in Resources */ = {isa = PBXBuildFile; fileRef = E39B9169C02F626865BB52A1 /* BRANDING.md */; };
 		BA0DC952F36F4B61723ABF62 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = ED62B12B17721DCF8C516203 /* AppIcon.icns */; };
 		C65D3F290CD653FF2DEF39C2 /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF2562FDADAF86D24061C54C /* Backend.swift */; };
 /* End PBXBuildFile section */
@@ -40,6 +42,8 @@
 		8CCAA44421685885637FCEE8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BE5468581F43DFF47C84FEB2 /* mac-dev-clean-logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mac-dev-clean-logo.png"; sourceTree = "<group>"; };
 		CF2562FDADAF86D24061C54C /* Backend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backend.swift; sourceTree = "<group>"; };
+		E39B9169C02F626865BB52A1 /* BRANDING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = BRANDING.md; sourceTree = "<group>"; };
+		E6910769539D2B91EA7C3414 /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
 		ED62B12B17721DCF8C516203 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		F949198D7517F916F78D1A5C /* raven-vector-dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "raven-vector-dark.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -72,6 +76,8 @@
 		795B3CF58A4EC696073635DF /* mac-dev-clean */ = {
 			isa = PBXGroup;
 			children = (
+				E39B9169C02F626865BB52A1 /* BRANDING.md */,
+				E6910769539D2B91EA7C3414 /* LICENSE */,
 				6A7103290A0C48DF674DF0F5 /* assets */,
 				CACF81BE34E6A69D4F48E005 /* raven_vector_logos */,
 			);
@@ -219,6 +225,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BA0DC952F36F4B61723ABF62 /* AppIcon.icns in Resources */,
+				A6E759F9352948A9FDB8C25E /* BRANDING.md in Resources */,
+				3ABD1BBA7B7ED0DEA8CA3DAA /* LICENSE in Resources */,
 				64016BFD0BFAFC177C109DB8 /* mac-dev-clean-logo.png in Resources */,
 				4B523DE68C2B7E00B0E59B51 /* raven-vector-dark-trans.png in Resources */,
 				5B0FFFC4125E606E22CF1669 /* raven-vector-dark.png in Resources */,

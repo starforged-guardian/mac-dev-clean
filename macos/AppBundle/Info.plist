@@ -27,7 +27,7 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>MIT Licensed</string>
+    <string>Code licensed under MIT. Raven Vector brand assets excluded; all rights reserved.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

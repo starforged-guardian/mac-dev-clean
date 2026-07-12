@@ -1,3 +1,12 @@
+Software License (MIT)
+
+Except for the Brand Assets identified in BRANDING.md, the source code and
+documentation in this repository are licensed under the MIT License below.
+The Brand Assets are not part of the "Software" as that term is used in the
+MIT License. No copyright, trademark, or other rights in the Brand Assets are
+granted under this license. See BRANDING.md for the separate terms that apply
+to them.
+
 MIT License
 
 Copyright (c) 2026 mac-dev-clean contributors
@@ -19,7 +28,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Trademark notice: the license above does not grant rights to Raven Vector names,
-logos, or product identity. See BRANDING.md for the repository's brand-asset
-terms.

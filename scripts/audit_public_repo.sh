@@ -26,6 +26,32 @@ if [ -n "$UNSAFE_FILES" ]; then
     exit 1
 fi
 
+echo "Checking protected brand-asset declarations..."
+BRAND_ASSETS=(
+    "assets/mac-dev-clean-logo.png"
+    "macos/AppBundle/AppIcon.icns"
+    "raven_vector_logos/raven-vector-dark.png"
+    "raven_vector_logos/raven-vector-dark-trans.png"
+)
+for ASSET in "${BRAND_ASSETS[@]}"; do
+    if [ ! -f "$ASSET" ]; then
+        echo "Protected brand asset is missing: $ASSET" >&2
+        exit 1
+    fi
+    if ! grep -Fq -- "- \`$ASSET\`" BRANDING.md; then
+        echo "Protected brand asset is not declared in BRANDING.md: $ASSET" >&2
+        exit 1
+    fi
+done
+if ! grep -Fq 'The Brand Assets are not part of the "Software"' LICENSE; then
+    echo "LICENSE is missing the Brand Asset exclusion." >&2
+    exit 1
+fi
+if ! grep -Fq 'All rights reserved.' BRANDING.md; then
+    echo "BRANDING.md is missing the rights reservation." >&2
+    exit 1
+fi
+
 echo "Checking for machine-specific absolute home paths..."
 if rg -n --pcre2 '/Users/(?!test(?:/|$)|example(?:/|$)|<local-user>)' \
     --glob '!scripts/audit_public_repo.sh' \

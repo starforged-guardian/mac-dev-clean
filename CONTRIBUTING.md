@@ -89,8 +89,8 @@ This project works near developer cache directories, so changes should keep the 
 - Run `./scripts/audit_public_repo.sh` before pushing; it also scans the working
   tree and history when Gitleaks is installed.
 - Confirm every new bundled image, font, or data file is licensed for public
-  redistribution. Forks should replace Raven Vector brand assets as described
-  in [BRANDING.md](BRANDING.md).
+  redistribution. Forks and modified builds must remove or replace Raven Vector
+  brand assets before distribution as described in [BRANDING.md](BRANDING.md).
 
 ## License
 

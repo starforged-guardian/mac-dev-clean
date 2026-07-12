@@ -31,6 +31,10 @@ targets:
         buildPhase: resources
       - path: ../raven_vector_logos/raven-vector-dark-trans.png
         buildPhase: resources
+      - path: ../LICENSE
+        buildPhase: resources
+      - path: ../BRANDING.md
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ravenvector.mac-dev-clean

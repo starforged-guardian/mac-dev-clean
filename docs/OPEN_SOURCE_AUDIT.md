@@ -22,9 +22,12 @@ The repository is configured to exclude:
 - layered Raven Vector artwork and unused logo variants that are not required
   by the app.
 
-The two Raven Vector PNGs used by the About page remain intentionally public so
-the app builds from a fresh checkout. Their use is explained in
-[BRANDING.md](../BRANDING.md).
+The four required Raven Vector and mac-dev-clean brand files remain
+intentionally public so the app builds from a fresh checkout. They are
+expressly excluded from the MIT License and governed by
+[BRANDING.md](../BRANDING.md). The publication audit verifies that each file is
+listed there, and app builds bundle both `LICENSE` and `BRANDING.md` alongside
+the assets.
 
 ## Native app findings
 

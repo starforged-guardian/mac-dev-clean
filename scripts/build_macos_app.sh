@@ -51,6 +51,8 @@ cp "$PACKAGE/AppBundle/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 cp "$ROOT/assets/mac-dev-clean-logo.png" "$RESOURCES/mac-dev-clean-logo.png"
 cp "$ROOT/raven_vector_logos/raven-vector-dark.png" "$RESOURCES/raven-vector-dark.png"
 cp "$ROOT/raven_vector_logos/raven-vector-dark-trans.png" "$RESOURCES/raven-vector-dark-trans.png"
+cp "$ROOT/LICENSE" "$RESOURCES/LICENSE"
+cp "$ROOT/BRANDING.md" "$RESOURCES/BRANDING.md"
 cp "$ROOT"/src/mac_dev_clean/*.py "$RESOURCES/python/mac_dev_clean/"
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$CONTENTS/Info.plist"
