@@ -34,15 +34,33 @@ import Testing
 }
 
 @Test func cleanupGroupsCombineCategoriesThatShareAFlag() {
-    let editor = fixture(category: "editor-cache", size: 100)
-    let updater = fixture(category: "updater-cache", size: 200)
+    let editor = fixture(category: "editor-cache", size: 50 * 1024 * 1024)
+    let updater = fixture(category: "updater-cache", size: 60 * 1024 * 1024)
 
     let groups = CleanupGroup.make(from: [editor, updater])
 
     #expect(groups.count == 1)
     #expect(groups[0].rule.flag == "--editor-caches")
-    #expect(groups[0].totalBytes == 300)
+    #expect(groups[0].totalBytes == 110 * 1024 * 1024)
     #expect(groups[0].items.first?.category == "updater-cache")
+}
+
+@Test func cleanupGroupsBelowOneHundredMegabytesAreNotOffered() {
+    let item = fixture(
+        category: "python-cache",
+        size: CleanupGroup.minimumOfferedBytes - 1
+    )
+
+    #expect(CleanupGroup.make(from: [item]).isEmpty)
+}
+
+@Test func cleanupGroupsAtOneHundredMegabytesAreOffered() {
+    let item = fixture(
+        category: "python-cache",
+        size: CleanupGroup.minimumOfferedBytes
+    )
+
+    #expect(CleanupGroup.make(from: [item]).count == 1)
 }
 
 @Test func reportOnlyItemsNeverBecomeCleanupGroups() {
@@ -111,6 +129,119 @@ import Testing
     #expect(environment["PYTHONHOME"] == nil)
 }
 
+@Test func backendDecodesCleanupDetailsFromPartialFailureExit() throws {
+    let json = #"""
+    {
+      "total_bytes": 104857600,
+      "total": "100.0 MB",
+      "count": 2,
+      "items": [
+        {
+          "category": "browser-cache",
+          "label": "Google browser caches",
+          "path": "/Users/test/Library/Caches/Google",
+          "size_bytes": 104857600,
+          "size": "100.0 MB",
+          "removed": true,
+          "error": ""
+        },
+        {
+          "category": "npm-cache",
+          "label": "npm download cache",
+          "path": "/Users/test/.npm/_cacache",
+          "size_bytes": 209715200,
+          "size": "200.0 MB",
+          "removed": false,
+          "error": "Operation not permitted"
+        }
+      ]
+    }
+    """#
+    let result = CommandResult(
+        stdout: Data(json.utf8),
+        stderr: "Scanning developer cache locations. This can take a moment...",
+        terminationStatus: 1
+    )
+
+    let report = try CleanupBackend.cleanReport(from: result)
+
+    #expect(report.items.count == 2)
+    #expect(report.items[1].error == "Operation not permitted")
+}
+
+@Test func backendShowsDiagnosticsWhenPartialFailureHasNoValidReport() {
+    let result = CommandResult(
+        stdout: Data(),
+        stderr: "Permission denied while reading the selected cache.",
+        terminationStatus: 1
+    )
+
+    do {
+        _ = try CleanupBackend.cleanReport(from: result)
+        Issue.record("Expected malformed cleanup output to throw")
+    } catch {
+        #expect(error.localizedDescription.contains("Permission denied"))
+        #expect(error.localizedDescription.contains("No additional files will be removed"))
+    }
+}
+
+@Test @MainActor func partialCleanupWarningSurvivesRefreshAndCanBeDismissed() async {
+    let scanItem = fixture(category: "browser-cache", size: 200 * 1024 * 1024)
+    let scanReport = ScanReport(
+        totalBytes: scanItem.sizeBytes,
+        total: scanItem.size,
+        cleanableTotalBytes: scanItem.sizeBytes,
+        cleanableTotal: scanItem.size,
+        reportOnlyTotalBytes: 0,
+        reportOnlyTotal: "0 B",
+        count: 1,
+        items: [scanItem]
+    )
+    let cleanReport = CleanReport(
+        totalBytes: 0,
+        total: "0 B",
+        count: 1,
+        items: [
+            CleanResultItem(
+                category: "browser-cache",
+                label: "Google browser caches",
+                path: "/Users/test/Library/Caches/Google",
+                sizeBytes: scanItem.sizeBytes,
+                size: scanItem.size,
+                removed: false,
+                error: "The browser is still using this cache"
+            ),
+        ]
+    )
+    let model = AppModel(
+        backend: StubBackend(scanReport: scanReport, cleanReport: cleanReport)
+    )
+
+    await model.scan()
+    model.selectedFlags = ["--browser-caches"]
+    await model.cleanSelected()
+
+    #expect(model.errorMessage == nil)
+    #expect(model.warningMessage?.contains("1 item was skipped") == true)
+    #expect(model.warningMessage?.contains("The browser is still using this cache") == true)
+    #expect(model.warningMessage?.contains("/Users/test/Library/Caches/Google") == true)
+
+    model.dismissMessage()
+
+    #expect(model.errorMessage == nil)
+    #expect(model.warningMessage == nil)
+    #expect(model.noticeMessage == nil)
+
+    model.errorMessage = "Old error"
+    model.warningMessage = "Old warning"
+    model.noticeMessage = "Old notice"
+    await model.scan()
+
+    #expect(model.errorMessage == nil)
+    #expect(model.warningMessage == nil)
+    #expect(model.noticeMessage == nil)
+}
+
 private func fixture(category: String, size: Int64) -> ScanItem {
     ScanItem(
         category: category,
@@ -123,4 +254,17 @@ private func fixture(category: String, size: Int64) -> ScanItem {
         deleteMode: "contents",
         note: ""
     )
+}
+
+private struct StubBackend: CleanupBackendProtocol {
+    let scanReport: ScanReport
+    let cleanReport: CleanReport
+
+    func scan() async throws -> ScanReport {
+        scanReport
+    }
+
+    func clean(flags: [String]) async throws -> CleanReport {
+        cleanReport
+    }
 }

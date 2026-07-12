@@ -156,9 +156,26 @@ struct ContentView: View {
             }
 
             if let error = model.errorMessage {
-                MessageBanner(text: error, symbol: "exclamationmark.triangle.fill", color: .red)
+                MessageBanner(
+                    text: error,
+                    symbol: "exclamationmark.triangle.fill",
+                    color: .red,
+                    onDismiss: model.dismissMessage
+                )
+            } else if let warning = model.warningMessage {
+                MessageBanner(
+                    text: warning,
+                    symbol: "exclamationmark.circle.fill",
+                    color: .orange,
+                    onDismiss: model.dismissMessage
+                )
             } else if let notice = model.noticeMessage {
-                MessageBanner(text: notice, symbol: "checkmark.circle.fill", color: .green)
+                MessageBanner(
+                    text: notice,
+                    symbol: "checkmark.circle.fill",
+                    color: .green,
+                    onDismiss: model.dismissMessage
+                )
             }
         }
         .padding(20)
@@ -452,6 +469,7 @@ struct MessageBanner: View {
     let text: String
     let symbol: String
     let color: Color
+    let onDismiss: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -461,6 +479,16 @@ struct MessageBanner: View {
                 .font(.callout)
                 .textSelection(.enabled)
             Spacer()
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Dismiss message")
+            .accessibilityLabel("Dismiss message")
         }
         .padding(10)
         .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))

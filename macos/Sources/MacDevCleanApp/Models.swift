@@ -153,6 +153,8 @@ struct CleanupRule: Hashable, Sendable {
 }
 
 struct CleanupGroup: Identifiable, Hashable, Sendable {
+    static let minimumOfferedBytes: Int64 = 100 * 1024 * 1024
+
     let rule: CleanupRule
     let items: [ScanItem]
 
@@ -178,10 +180,14 @@ struct CleanupGroup: Identifiable, Hashable, Sendable {
             guard let first = items.first, let rule = CleanupRule.rule(for: first.category) else {
                 return nil
             }
-            return CleanupGroup(
+            let group = CleanupGroup(
                 rule: rule,
                 items: items.sorted { $0.sizeBytes > $1.sizeBytes }
             )
+            guard group.hasUnknownSize || group.totalBytes >= minimumOfferedBytes else {
+                return nil
+            }
+            return group
         }
         .sorted { lhs, rhs in
             if lhs.totalBytes == rhs.totalBytes { return lhs.rule.title < rhs.rule.title }

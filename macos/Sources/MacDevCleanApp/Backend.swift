@@ -3,7 +3,7 @@ import Foundation
 enum BackendError: LocalizedError {
     case sourceNotFound
     case pythonNotFound
-    case commandFailed(Int32, String)
+    case commandFailed(operation: String, code: Int32, details: String)
     case invalidOutput(String)
 
     var errorDescription: String? {
@@ -12,8 +12,11 @@ enum BackendError: LocalizedError {
             return "Could not find the bundled mac-dev-clean Python engine."
         case .pythonNotFound:
             return "Python 3 was not found. Install Xcode Command Line Tools and try again."
-        case let .commandFailed(code, message):
-            return "mac-dev-clean exited with status \(code).\n\(message)"
+        case let .commandFailed(operation, code, details):
+            let reason = details.isEmpty
+                ? "The cleanup engine did not return a reason."
+                : details
+            return "The \(operation) could not finish. No additional files will be removed.\n\(reason)\n\nDiagnostic code: \(code)"
         case let .invalidOutput(message):
             return "mac-dev-clean returned invalid data.\n\(message)"
         }
@@ -29,9 +32,15 @@ struct BackendLocation: Sendable {
 struct CommandResult: Sendable {
     let stdout: Data
     let stderr: String
+    let terminationStatus: Int32
 }
 
-struct CleanupBackend: Sendable {
+protocol CleanupBackendProtocol: Sendable {
+    func scan() async throws -> ScanReport
+    func clean(flags: [String]) async throws -> CleanReport
+}
+
+struct CleanupBackend: CleanupBackendProtocol, Sendable {
     let location: BackendLocation
 
     init(location: BackendLocation? = nil) throws {
@@ -45,7 +54,10 @@ struct CleanupBackend: Sendable {
             "--no-node-modules",
             "--no-project-derived-data",
         ])
-        return try decode(ScanReport.self, from: result.stdout)
+        guard result.terminationStatus == 0 else {
+            throw Self.commandFailure(operation: "scan", result: result)
+        }
+        return try Self.decode(ScanReport.self, from: result.stdout)
     }
 
     func clean(flags: [String]) async throws -> CleanReport {
@@ -53,16 +65,47 @@ struct CleanupBackend: Sendable {
             return CleanReport(totalBytes: 0, total: "0 B", count: 0, items: [])
         }
         let result = try await run(arguments: ["clean"] + flags + ["--json"])
-        return try decode(CleanReport.self, from: result.stdout)
+        return try Self.cleanReport(from: result)
     }
 
-    private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    static func cleanReport(from result: CommandResult) throws -> CleanReport {
+        if result.terminationStatus == 0 {
+            return try Self.decode(CleanReport.self, from: result.stdout)
+        }
+
+        // The CLI intentionally returns 1 when cleanup completed but one or more
+        // locations were skipped. Its JSON is still the authoritative result and
+        // contains the per-location reasons the UI needs to show.
+        if result.terminationStatus == 1,
+           let report = try? JSONDecoder().decode(CleanReport.self, from: result.stdout)
+        {
+            return report
+        }
+
+        throw Self.commandFailure(operation: "cleanup", result: result)
+    }
+
+    static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
             let raw = String(data: data, encoding: .utf8) ?? "No readable output"
             throw BackendError.invalidOutput("\(error.localizedDescription)\n\(raw)")
         }
+    }
+
+    static func commandFailure(operation: String, result: CommandResult) -> BackendError {
+        let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stdout = String(data: result.stdout, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let details = [stderr, stdout]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        return .commandFailed(
+            operation: operation,
+            code: result.terminationStatus,
+            details: String(details.prefix(4_000))
+        )
     }
 
     static func pythonEnvironment(
@@ -103,10 +146,11 @@ struct CleanupBackend: Sendable {
             let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
             let stderr = String(data: stderrData, encoding: .utf8) ?? ""
 
-            guard process.terminationStatus == 0 else {
-                throw BackendError.commandFailed(process.terminationStatus, stderr)
-            }
-            return CommandResult(stdout: stdout, stderr: stderr)
+            return CommandResult(
+                stdout: stdout,
+                stderr: stderr,
+                terminationStatus: process.terminationStatus
+            )
         }.value
     }
 }
