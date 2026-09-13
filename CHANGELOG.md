@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 - Older Xcode archive copies can now be cleaned from the native app and
   `--xcode-archive-copies`. The latest archive for each app stays review-only
   for crash symbolication, and cleanup refuses to delete that newest copy.
+- Declared `xcode_archives.py` in the Xcode Python-engine bundle script so
+  sandboxed CI builds can copy the new module.
 
 - Added a Simulators screen with named devices, runtime versions, last boot times,
   reported sizes, and confirmed per-device deletion through simctl. Active devices
