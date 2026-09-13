@@ -103,6 +103,117 @@ import Testing
     #expect(diskSpace.total == "1000.0 GB")
 }
 
+@Test func repositoryRemoteSummaryRemovesEmbeddedCredentials() {
+    let project = RepositoryProject(
+        path: "/Users/test/project",
+        name: "project",
+        sizeBytes: 1,
+        isGitRepository: true,
+        branch: "main",
+        remoteURL: "https://private-token@github.com/example/project.git",
+        commit: nil,
+        hasTrackedChanges: false,
+        lastActivityAt: nil
+    )
+
+    #expect(project.remoteSummary == "github.com/example/project")
+    #expect(project.remoteSummary?.contains("private-token") == false)
+}
+
+@Test func repositoryShelfCatalogRoundTripsThroughDisk() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("mac-dev-clean-catalog-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let service = RepositoryShelfService(
+        catalogURL: root.appendingPathComponent("catalog.json")
+    )
+    let project = RepositoryProject(
+        path: "/Users/test/project",
+        name: "project",
+        sizeBytes: 42,
+        isGitRepository: true,
+        branch: "main",
+        remoteURL: "git@github.com:example/project.git",
+        commit: "abc123",
+        hasTrackedChanges: true,
+        lastActivityAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )
+    let catalog = RepositoryShelfCatalog(
+        shelfRootPath: "/Volumes/Archive/Project Shelf",
+        projects: [project],
+        shelvedProjects: []
+    )
+
+    try service.saveCatalog(catalog)
+
+    #expect(try service.loadCatalog() == catalog)
+}
+
+@Test func projectShelfMovesAndRestoresCompleteFolder() async throws {
+    let fileManager = FileManager.default
+    let root = fileManager.temporaryDirectory
+        .appendingPathComponent("mac-dev-clean-shelf-\(UUID().uuidString)", isDirectory: true)
+    let projects = root.appendingPathComponent("Projects", isDirectory: true)
+    let source = projects.appendingPathComponent("SampleApp", isDirectory: true)
+    let gitDirectory = source.appendingPathComponent(".git", isDirectory: true)
+    let shelf = root.appendingPathComponent("Shelf", isDirectory: true)
+    defer { try? fileManager.removeItem(at: root) }
+
+    try fileManager.createDirectory(at: gitDirectory, withIntermediateDirectories: true)
+    try Data("LOCAL_ONLY=preserve-me".utf8).write(
+        to: source.appendingPathComponent(".env")
+    )
+    try Data("# Sample".utf8).write(
+        to: source.appendingPathComponent("README.md")
+    )
+
+    let service = RepositoryShelfService(
+        catalogURL: root.appendingPathComponent("catalog.json")
+    )
+    let project = try await service.inspectProject(at: source)
+    let shelved = try await service.shelf(project, in: shelf)
+
+    #expect(!fileManager.fileExists(atPath: source.path))
+    #expect(fileManager.fileExists(atPath: shelved.shelfPath + "/.git"))
+    #expect(fileManager.fileExists(atPath: shelved.shelfPath + "/.env"))
+
+    let restored = try await service.restore(shelved)
+
+    #expect(restored.path == source.path)
+    #expect(fileManager.fileExists(atPath: source.appendingPathComponent(".git").path))
+    let environment = try String(
+        contentsOf: source.appendingPathComponent(".env"),
+        encoding: .utf8
+    )
+    #expect(environment == "LOCAL_ONLY=preserve-me")
+    #expect(!fileManager.fileExists(atPath: shelved.shelfPath))
+}
+
+@Test func repositoryDiscoveryFindsNestedReposAndExcludesShelf() async throws {
+    let fileManager = FileManager.default
+    let root = fileManager.temporaryDirectory
+        .appendingPathComponent("mac-dev-clean-discovery-\(UUID().uuidString)", isDirectory: true)
+    let first = root.appendingPathComponent("First", isDirectory: true)
+    let second = root.appendingPathComponent("Work/Second", isDirectory: true)
+    let shelf = root.appendingPathComponent("Shelf", isDirectory: true)
+    let excluded = shelf.appendingPathComponent("Shelved", isDirectory: true)
+    defer { try? fileManager.removeItem(at: root) }
+
+    for repository in [first, second, excluded] {
+        try fileManager.createDirectory(
+            at: repository.appendingPathComponent(".git", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+    }
+
+    let service = RepositoryShelfService(
+        catalogURL: root.appendingPathComponent("catalog.json")
+    )
+    let projects = try await service.discoverRepositories(in: root, excluding: shelf)
+    #expect(Set(projects.map(\.name)) == Set(["First", "Second"]))
+    #expect(projects.allSatisfy { !$0.path.contains("/Shelf/") })
+}
+
 @Test func ravenVectorWebsiteUsesSecureCanonicalURL() {
     #expect(AppMetadata.ravenVectorWebsite.scheme == "https")
     #expect(AppMetadata.ravenVectorWebsite.host == "ravenvector.com")
@@ -267,4 +378,129 @@ private struct StubBackend: CleanupBackendProtocol {
     func clean(flags: [String]) async throws -> CleanReport {
         cleanReport
     }
+
+    func simulatorDevices() async throws -> SimulatorInventory {
+        SimulatorInventory(devices: [])
+    }
+
+    func deleteSimulator(udid: String) async throws -> SimulatorActionReport {
+        throw BackendError.invalidOutput("Unexpected simulator deletion")
+    }
+}
+
+@Test func simulatorInventoryDecodesAndProtectsActiveDevices() throws {
+    let json = #"""
+    {"devices":[{"udid":"AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA","name":"iPhone","runtime_identifier":"com.apple.CoreSimulator.SimRuntime.iOS-26-5","state":"Booted","is_available":true,"last_booted_at":"2026-09-12T21:04:46+00:00","total_size_bytes":5844062208}]}
+    """#
+    let inventory = try CleanupBackend.decode(SimulatorInventory.self, from: Data(json.utf8))
+    #expect(inventory.devices.count == 1)
+    #expect(!inventory.devices[0].canDelete)
+    #expect(inventory.devices[0].runtimeName == "iOS 26.5")
+    #expect(inventory.devices[0].lastBootedDescription.hasPrefix("Last boot:"))
+    #expect(!simulatorFixture(state: "Booting").canDelete)
+    #expect(!simulatorFixture(state: "").canDelete)
+    #expect(simulatorFixture().canDelete)
+}
+
+@Test @MainActor func simulatorDeletionRefreshesInventoryAndInvalidatesStorageReport() async {
+    let device = simulatorFixture()
+    let backend = SimulatorStubBackend(device: device)
+    let model = AppModel(backend: backend)
+    await model.scan()
+    await model.scanSimulators()
+    #expect(model.simulatorDevices.count == 1)
+    await model.deleteSimulator(device)
+    #expect(model.simulatorDevices.isEmpty)
+    #expect(model.report == nil)
+    #expect(model.noticeMessage?.contains("Deleted iPhone") == true)
+    #expect(model.errorMessage == nil)
+    #expect(model.activity == .idle)
+    #expect(await backend.deletedIDs == [device.udid])
+}
+
+@Test @MainActor func activeSimulatorCannotReachDeletionBackend() async {
+    let device = simulatorFixture(state: "Booted")
+    let backend = SimulatorStubBackend(device: device)
+    let model = AppModel(backend: backend)
+    await model.deleteSimulator(device)
+    #expect(await backend.deletedIDs.isEmpty)
+}
+
+@Test @MainActor func simulatorFailureRefreshesStateAndNeverClaimsSuccess() async {
+    let device = simulatorFixture()
+    let backend = SimulatorStubBackend(device: device, failsDeletion: true)
+    let model = AppModel(backend: backend)
+    await model.deleteSimulator(device)
+    #expect(model.noticeMessage == nil)
+    #expect(model.errorMessage?.contains("now booted") == true)
+    #expect(model.simulatorDevices.count == 1)
+    #expect(model.activity == .idle)
+}
+
+@Test @MainActor func simulatorDryRunCannotBeReportedAsSuccessfulDeletion() async {
+    let device = simulatorFixture()
+    let backend = SimulatorStubBackend(device: device, dryRun: true)
+    let model = AppModel(backend: backend)
+    await model.deleteSimulator(device)
+    #expect(model.noticeMessage == nil)
+    #expect(model.errorMessage?.contains("did not confirm") == true)
+}
+
+private func simulatorFixture(state: String = "Shutdown") -> SimulatorDevice {
+    SimulatorDevice(
+        udid: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA", name: "iPhone",
+        runtimeIdentifier: "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+        state: state, isAvailable: true, lastBootedAt: nil, totalSizeBytes: 2_000_000_000
+    )
+}
+
+private actor SimulatorStubBackend: CleanupBackendProtocol {
+    let device: SimulatorDevice
+    let failsDeletion: Bool
+    let dryRun: Bool
+    var deletedIDs: [String] = []
+
+    init(device: SimulatorDevice, failsDeletion: Bool = false, dryRun: Bool = false) {
+        self.device = device
+        self.failsDeletion = failsDeletion
+        self.dryRun = dryRun
+    }
+
+    func scan() async throws -> ScanReport {
+        ScanReport(totalBytes: 0, total: "0 B", cleanableTotalBytes: 0, cleanableTotal: "0 B",
+                   reportOnlyTotalBytes: 0, reportOnlyTotal: "0 B", count: 0, items: [])
+    }
+    func clean(flags: [String]) async throws -> CleanReport {
+        CleanReport(totalBytes: 0, total: "0 B", count: 0, items: [])
+    }
+    func simulatorDevices() async throws -> SimulatorInventory {
+        SimulatorInventory(devices: deletedIDs.isEmpty ? [device] : [])
+    }
+    func deleteSimulator(udid: String) async throws -> SimulatorActionReport {
+        if failsDeletion { throw BackendError.invalidOutput("Device is now booted") }
+        if !dryRun { deletedIDs.append(udid) }
+        return SimulatorActionReport(dryRun: dryRun, targets: [device])
+    }
+}
+
+@Test func backendDrainsLargeReportsAndDiagnosticsWithoutBlocking() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("mac-dev-clean-pipes-\(UUID())")
+    let module = root.appendingPathComponent("mac_dev_clean")
+    try FileManager.default.createDirectory(at: module, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try "".write(to: module.appendingPathComponent("__init__.py"), atomically: true, encoding: .utf8)
+    let script = """
+    import json, sys
+    sys.stderr.write('diagnostic ' * 20000)
+    sys.stderr.flush()
+    print(json.dumps({'devices': [{'udid': 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA',
+        'name': 'iPhone' * 40000, 'runtime_identifier': 'iOS', 'state': 'Shutdown',
+        'is_available': True, 'last_booted_at': None, 'total_size_bytes': 1}]}))
+    """
+    try script.write(to: module.appendingPathComponent("xcode_sim_prune.py"), atomically: true, encoding: .utf8)
+    let backend = try CleanupBackend(location: BackendLocation(
+        pythonURL: URL(fileURLWithPath: "/usr/bin/python3"), pythonPath: root, workingDirectory: root
+    ))
+    let result = try await backend.simulatorDevices()
+    #expect(result.devices.first?.name.count == 240000)
 }

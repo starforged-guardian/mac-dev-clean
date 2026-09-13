@@ -123,6 +123,14 @@ stay on a separate screen and can be revealed in Finder. An About page includes
 Raven Vector branding, the installed app version, and a link to
 [ravenvector.com](https://ravenvector.com).
 
+The native app also includes **Project Shelf**. It finds Git repositories under
+your home folder, accepts other project folders you add manually, and can move
+the complete folder to iCloud Drive, another cloud-synced folder, or an external
+volume. Every shelf entry remembers the original path, and Restore moves the
+folder back intact. This preserves unpublished branches, uncommitted changes,
+ignored files, local configuration, submodules, LFS data, and build state that a
+fresh clone could miss.
+
 Automatic GUI scans avoid project discovery under protected folders such as
 Documents, Desktop, and Downloads, so opening the app does not trigger macOS
 folder-access prompts. Project-local DerivedData remains available from the CLI
@@ -390,20 +398,27 @@ Docker VM data is intentionally report-only because deleting it directly can rem
 
 ## iCloud and Long-Term Storage
 
-`mac-dev-clean` reports data that may be worth archiving, but it does not move
-active projects, Xcode state, Codex task history, or device backups into iCloud.
-Moving those live directories can break tools when macOS evicts files locally.
+The native app's **Project Shelf** can rotate complete, inactive project folders
+to a location you choose. Close editors, terminals, and developer tools using a
+project before moving it. Keep active build directories on the local disk;
+restore a project before working in it so tools never operate on partially
+downloaded cloud content.
+
+An external volume reclaims internal SSD space as soon as the move completes.
+iCloud Drive initially keeps a local copy while it uploads. Verify the upload,
+then use Finder's **Remove Download** action to release the local copy without
+deleting the cloud project. Apple documents this workflow in [Work with folders
+and files in iCloud Drive](https://support.apple.com/en-euro/guide/mac-help/mchl1a02d711/mac).
 
 Good manual candidates include finished generated images, exported screenshots,
 old release artifacts you no longer need in Xcode Organizer, and other completed
-documents. Copy them into iCloud Drive, verify the upload, then use Finder's
-**Remove Download** action to release the local copy without deleting the cloud
-file. Apple documents this workflow in [Work with folders and files in iCloud
-Drive](https://support.apple.com/en-euro/guide/mac-help/mchl1a02d711/mac).
+documents. Project Shelf is deliberately limited to folders the user selects or
+repositories it discovers; it does not move Xcode state, Codex task history, or
+device backups.
 
 For ongoing personal files, enable **Optimize Mac Storage** in System Settings >
-your Apple Account > iCloud > Drive. Keep source checkouts and active build
-directories outside iCloud Drive.
+your Apple Account > iCloud > Drive. Keep active source checkouts and build
+directories outside iCloud Drive by restoring them before use.
 
 ## Safety Model
 
@@ -518,6 +533,17 @@ PYTHONPATH=src python3 -m mac_dev_clean report --json --no-node-modules --no-pro
 PYTHONPATH=src python3 -m mac_dev_clean.xcode_sim_prune list --json
 ```
 
+Install Gitleaks and activate the repository's versioned Git hooks:
+
+```sh
+brew install gitleaks
+./scripts/install_git_hooks.py
+```
+
+The pre-commit hook scans staged changes, while the pre-push hook scans Git
+history. The installer refuses to replace a different custom `core.hooksPath`.
+Run `./scripts/audit_public_repo.sh` for the broader publication audit.
+
 ## Contributing
 
 Contributions are welcome. Please keep changes aligned with the safety model: scans must be read-only, deletion must be explicit, and new cleanup behavior should include tests.
@@ -540,3 +566,18 @@ Vector names, logos, app icons, and product identity are expressly excluded
 from that license and remain all rights reserved. Forks and modified builds must
 remove or replace them before distribution. See [LICENSE](LICENSE) and
 [BRANDING.md](BRANDING.md) for the exact scope and limited permissions.
+
+### Review large simulator devices in the native app
+
+Open **Simulators** to match large CoreSimulator UUID folders to device names,
+runtime versions, last boot times, and reported sizes. **Delete Device…** confirms
+one shutdown device at a time and permanently removes its local apps and data.
+The engine checks the current state before deletion; active devices and installed
+runtimes are kept. Sizes may include shared data, so actual recovery can be lower.
+
+For a read-only device inventory or an explicit deletion preview from the CLI:
+
+```sh
+xcode-sim-prune list-devices --json
+xcode-sim-prune delete-device --udid DEVICE-UUID --dry-run
+```

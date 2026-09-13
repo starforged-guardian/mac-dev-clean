@@ -213,3 +213,52 @@ enum ByteFormatter {
         return String(format: "%.1f %@", value, units[unitIndex])
     }
 }
+
+struct SimulatorInventory: Decodable, Sendable {
+    let devices: [SimulatorDevice]
+}
+
+struct SimulatorDevice: Decodable, Identifiable, Hashable, Sendable {
+    let udid: String
+    let name: String
+    let runtimeIdentifier: String
+    let state: String
+    let isAvailable: Bool
+    let lastBootedAt: String?
+    let totalSizeBytes: Int64
+
+    var id: String { udid }
+    var canDelete: Bool { state.lowercased() == "shutdown" && UUID(uuidString: udid) != nil }
+    var runtimeName: String {
+        let suffix = runtimeIdentifier.replacingOccurrences(of: "com.apple.CoreSimulator.SimRuntime.", with: "")
+        let parts = suffix.split(separator: "-", maxSplits: 1)
+        guard parts.count == 2 else { return suffix }
+        return "\(parts[0]) \(parts[1].replacingOccurrences(of: "-", with: "."))"
+    }
+    var lastBootedDescription: String {
+        guard let lastBootedAt else { return "No recorded boot" }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: lastBootedAt) ?? ISO8601DateFormatter().date(from: lastBootedAt)
+        guard let date else { return "Last boot unknown" }
+        return "Last boot: \(date.formatted(date: .abbreviated, time: .shortened))"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case udid, name, state
+        case runtimeIdentifier = "runtime_identifier"
+        case isAvailable = "is_available"
+        case lastBootedAt = "last_booted_at"
+        case totalSizeBytes = "total_size_bytes"
+    }
+}
+
+struct SimulatorActionReport: Decodable, Sendable {
+    let dryRun: Bool
+    let targets: [SimulatorDevice]
+
+    enum CodingKeys: String, CodingKey {
+        case dryRun = "dry_run"
+        case targets
+    }
+}

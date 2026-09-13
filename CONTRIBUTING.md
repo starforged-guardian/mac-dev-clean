@@ -77,6 +77,9 @@ This project works near developer cache directories, so changes should keep the 
 
 ## Public Repository Hygiene
 
+- Install Gitleaks with `brew install gitleaks`, then run
+  `./scripts/install_git_hooks.py` once per checkout. The versioned pre-commit
+  hook scans staged changes and the pre-push hook scans Git history.
 - Never commit credentials, `.env` files, private keys, certificates,
   provisioning profiles, notarization logs, or Apple Account information.
 - Do not commit `.swiftpm`, `xcuserdata`, `*.xcuserstate`, DerivedData, archives,

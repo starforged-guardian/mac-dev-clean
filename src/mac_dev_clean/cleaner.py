@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import errno
 import shutil
 import stat
 from pathlib import Path
@@ -248,14 +249,25 @@ def validate_category_path(target: ScanTarget, resolved: Path, safety_root: Path
 def _remove_contents(path: Path) -> None:
     if path.is_symlink() or not path.is_dir():
         raise OSError("refusing to clean contents of a non-directory or symlink")
+    failures = []
     for child in path.iterdir():
-        _remove_path(child)
+        try:
+            _remove_path(child)
+        except FileNotFoundError:
+            continue  # Another process removed this cache entry first.
+        except OSError as exc:
+            if exc.errno in {errno.ENOTEMPTY, errno.EBUSY}:
+                failures.append(f"{child.name}: cache is busy or being recreated. Quit the app that uses it, then scan and clean again.")
+            else:
+                failures.append(f"{child.name}: {exc}")
+    if failures:
+        raise OSError("Some cache entries could not be removed. " + "\n".join(failures[:5]))
 
 
 def _remove_path(path: Path) -> None:
     try:
         mode = os.lstat(path).st_mode
-    except OSError:
+    except FileNotFoundError:
         return
 
     if stat.S_ISLNK(mode) or stat.S_ISREG(mode):
@@ -263,7 +275,15 @@ def _remove_path(path: Path) -> None:
     elif stat.S_ISDIR(mode):
         if not shutil.rmtree.avoids_symlink_attacks:
             raise OSError("refusing directory deletion without symlink-safe rmtree support")
-        shutil.rmtree(path)
+        failures = []
+
+        def onerror(function, failed_path, exc_info):
+            if not isinstance(exc_info[1], FileNotFoundError):
+                failures.append(exc_info[1])
+
+        shutil.rmtree(path, onerror=onerror)
+        if failures:
+            raise failures[0]
 
 
 def _is_relative_to_or_equal(path: Path, root: Path) -> bool:

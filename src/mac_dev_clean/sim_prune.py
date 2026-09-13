@@ -124,12 +124,16 @@ class SimctlError(RuntimeError):
 
 
 def run_simctl(args: Sequence[str]) -> str:
-    process = subprocess.run(
-        [XCRUN, "simctl", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        process = subprocess.run(
+            [XCRUN, "simctl", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise SimctlError("simctl did not respond within 60 seconds; check Xcode and try again") from exc
     if process.returncode != 0:
         detail = process.stderr.strip() or process.stdout.strip()
         raise SimctlError(detail or f"simctl exited with {process.returncode}")
@@ -140,6 +144,28 @@ def load_inventory(runner: Runner = run_simctl) -> Inventory:
     devices = parse_devices_json(runner(["list", "--json", "devices"]))
     runtimes = parse_runtime_images_json(runner(["runtime", "list", "-j"]))
     return Inventory(devices=devices, runtimes=runtimes)
+
+
+def load_devices(runner: Runner = run_simctl) -> Inventory:
+    """Read device sizes without requiring runtime-image management to work."""
+    return Inventory(
+        devices=parse_devices_json(runner(["list", "--json", "devices"])),
+        runtimes=[],
+    )
+
+
+def delete_device(udid: str, runner: Runner = run_simctl, dry_run: bool = False) -> ActionReport:
+    """Delete exactly one explicitly selected device, checking its live state."""
+    if not is_safe_simctl_udid(udid):
+        raise ValueError("invalid simulator UDID")
+    inventory = load_devices(runner)
+    matches = [device for device in inventory.devices if device.udid.upper() == udid.upper()]
+    if len(matches) != 1:
+        raise ValueError("simulator no longer exists or could not be uniquely identified; refresh the list")
+    device = matches[0]
+    if device.state.lower() != "shutdown":
+        raise ValueError(f"{device.name} is {device.state or 'in an unknown state'}; only shutdown devices can be deleted")
+    return delete_devices(inventory, udids=[device.udid], runner=runner, dry_run=dry_run)
 
 
 def load_device_set_inventory(device_set: Path, runner: Runner = run_simctl) -> Inventory:

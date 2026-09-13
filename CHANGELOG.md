@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Added a Simulators screen with named devices, runtime versions, last boot times,
+  reported sizes, and confirmed per-device deletion through simctl. Active devices
+  are protected by a fresh state check, and installed runtimes are retained.
+- Busy cache entries no longer prevent cleanup of their siblings; partial failures
+  explain how to quit the owning app and retry.
+- Prevented large Python reports from blocking the native app on full output pipes.
+
+- Added a native Project Shelf that discovers Git repositories, measures their
+  allocated size, moves complete project folders to iCloud Drive, another
+  cloud-synced folder, or an external volume, and restores them to their exact
+  original paths.
+- Persisted shelf and restore metadata locally, preserved local-only repository
+  state by moving rather than re-cloning, and added same-disk/iCloud storage
+  guidance so users know when local SSD space is actually reclaimed.
+
 ## 0.5.2 - 2026-07-11
 
 - Added `update_app.sh` to rebuild, safely replace, and relaunch the locally

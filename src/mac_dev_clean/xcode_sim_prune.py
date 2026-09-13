@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import subprocess
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Sequence
 
@@ -16,6 +17,8 @@ from .sim_prune import (
     SimctlError,
     age_to_days,
     delete_devices,
+    delete_device,
+    load_devices,
     delete_runtimes,
     delete_unavailable,
     erase_unused,
@@ -31,6 +34,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         if args.command in {None, "interactive"}:
             return run_interactive()
+
+        if args.command == "list-devices":
+            inventory = load_devices()
+            print(json.dumps(inventory.to_dict(), indent=2) if args.json else render_devices(inventory.devices))
+            return 0
+
+        if args.command == "delete-device":
+            report = delete_device(args.udid, dry_run=args.dry_run)
+            print(render_action_json(report) if args.json else render_action_report(report))
+            return 0
 
         if args.command == "list":
             inventory = load_inventory()
@@ -89,7 +102,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
     except ValueError as exc:
         parser.error(str(exc))
-    except SimctlError as exc:
+    except (SimctlError, OSError, subprocess.TimeoutExpired) as exc:
         print(f"xcode-sim-prune: simctl failed: {exc}", file=sys.stderr)
         return 1
 
@@ -111,6 +124,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     list_parser = subparsers.add_parser("list", help="List simulator devices and runtime disk images.")
     list_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    devices_parser = subparsers.add_parser("list-devices", help="List devices without querying runtime images.")
+    devices_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+    device_parser = subparsers.add_parser("delete-device", help="Delete one explicit shutdown device after checking its current state. Removes its apps and data.")
+    device_parser.add_argument("--udid", required=True)
+    add_action_options(device_parser)
 
     unavailable_parser = subparsers.add_parser(
         "delete-unavailable",
