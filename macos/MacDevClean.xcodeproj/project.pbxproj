@@ -259,6 +259,7 @@
 				"$(SRCROOT)/../src/mac_dev_clean/output.py",
 				"$(SRCROOT)/../src/mac_dev_clean/scanner.py",
 				"$(SRCROOT)/../src/mac_dev_clean/sim_prune.py",
+				"$(SRCROOT)/../src/mac_dev_clean/xcode_archives.py",
 				"$(SRCROOT)/../src/mac_dev_clean/xcode_sim_prune.py",
 			);
 			name = "Bundle Python cleanup engine";
@@ -274,6 +275,7 @@
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/output.py",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/scanner.py",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/sim_prune.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/xcode_archives.py",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/xcode_sim_prune.py",
 			);
 			runOnlyForDeploymentPostprocessing = 0;

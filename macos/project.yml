@@ -70,6 +70,7 @@ targets:
           - $(SRCROOT)/../src/mac_dev_clean/output.py
           - $(SRCROOT)/../src/mac_dev_clean/scanner.py
           - $(SRCROOT)/../src/mac_dev_clean/sim_prune.py
+          - $(SRCROOT)/../src/mac_dev_clean/xcode_archives.py
           - $(SRCROOT)/../src/mac_dev_clean/xcode_sim_prune.py
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/__init__.py
@@ -81,6 +82,7 @@ targets:
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/output.py
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/scanner.py
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/sim_prune.py
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/xcode_archives.py
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/python/mac_dev_clean/xcode_sim_prune.py
         script: |
           ENGINE_SOURCE="${SRCROOT}/../src/mac_dev_clean"

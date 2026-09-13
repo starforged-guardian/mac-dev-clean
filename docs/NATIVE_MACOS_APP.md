@@ -130,3 +130,7 @@ When adding a bundled resource:
 2. Add the equivalent copy step to `scripts/build_macos_app.sh`.
 3. Confirm the built app contains the resource.
 4. Confirm the resource's license permits public redistribution.
+
+New Python engine modules must also be listed in the **Bundle Python cleanup
+engine** script `inputFiles` and `outputFiles`. Xcode user-script sandboxing
+refuses to copy any `.py` file that is not declared there.
