@@ -133,6 +133,7 @@ struct CleanupRule: Hashable, Sendable {
         "xcode-device-support": .init(flag: "--xcode-device-support", title: "Device support", symbol: "iphone.gen3"),
         "xcode-device-logs": .init(flag: "--xcode-device-logs", title: "Device logs", symbol: "doc.text.magnifyingglass"),
         "xcode-test-devices": .init(flag: "--xcode-test-devices", title: "XCTest simulator clones", symbol: "square.stack.3d.up.fill"),
+        "xcode-archive-copies": .init(flag: "--xcode-archive-copies", title: "Older Xcode archives", symbol: "shippingbox"),
         "simulator-caches": .init(flag: "--simulator-caches", title: "Simulator caches", symbol: "iphone.and.arrow.forward"),
         "simulator-dyld-cache": .init(flag: "--simulator-dyld-cache", title: "Simulator runtime caches", symbol: "memorychip.fill"),
         "project-derived-data": .init(flag: "--project-derived-data", title: "Project DerivedData", symbol: "folder.badge.gearshape"),

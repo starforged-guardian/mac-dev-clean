@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 from .model import CleanResult, ScanTarget
+from .xcode_archives import is_latest_xcode_archive, looks_like_xcode_archive_parts
 from .sim_prune import (
     SimctlError,
     delete_test_clones,
@@ -42,6 +43,7 @@ CATEGORY_DELETE_MODES = {
     "browser-cache": "contents",
     "node-modules": "tree",
     "project-derived-data": "tree",
+    "xcode-archive-copies": "tree",
 }
 
 FIXED_CATEGORY_SUFFIXES = {
@@ -203,6 +205,9 @@ def validate_target(target: ScanTarget) -> str:
             resolved.relative_to(safety_root).parts, resolved
         ):
             return "refusing to clean a directory without Xcode DerivedData markers"
+    if target.delete_mode == "tree" and target.category == "xcode-archive-copies":
+        if not resolved.is_dir():
+            return "Xcode archive cleanup requires an .xcarchive directory"
     if target.delete_mode == "contents" and not path.is_dir():
         return "contents mode requires a directory"
     if target.delete_mode == "simctl-device-set" and not path.is_dir():
@@ -234,6 +239,13 @@ def validate_category_path(target: ScanTarget, resolved: Path, safety_root: Path
     if target.category == "project-derived-data":
         if not _looks_like_project_derived_data(parts, resolved):
             return "refusing to clean a directory without Xcode DerivedData markers"
+        return ""
+
+    if target.category == "xcode-archive-copies":
+        if not looks_like_xcode_archive_parts(parts):
+            return "target path does not match a known Xcode archive location"
+        if is_latest_xcode_archive(resolved, safety_root):
+            return "refusing to delete the latest archive for this app"
         return ""
 
     allowed_suffixes = FIXED_CATEGORY_SUFFIXES.get(target.category)

@@ -91,6 +91,17 @@ final class AppModel: ObservableObject {
         return unknown ? "\(size) plus shared simulator data" : size
     }
 
+    var cleanupConfirmationMessage: String {
+        var parts = ["This will remove \(selectedSummary)."]
+        if selectedFlags.contains("--xcode-archive-copies") {
+            parts.append("Older Xcode archives are deleted permanently. The latest archive for each app is kept.")
+        }
+        if selectedFlags.contains(where: { $0 != "--xcode-archive-copies" }) {
+            parts.append("Generated caches may be downloaded or rebuilt later.")
+        }
+        return parts.joined(separator: " ")
+    }
+
     var isBusy: Bool { activity != .idle }
 
     var simulatorDevices: [SimulatorDevice] {

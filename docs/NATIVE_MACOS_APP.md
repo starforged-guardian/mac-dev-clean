@@ -12,7 +12,9 @@ to inspect and clean disk usage without remembering category flags.
 - Cleanup is limited to the cleanable groups selected in the UI and requires a
   native macOS confirmation immediately before deletion.
 - Review-only locations can be revealed in Finder but are never sent to the
-  cleanup command.
+  cleanup command. The latest Xcode archive for each app stays review-only;
+  older archive copies appear in Cleanup only after they are classified as
+  extras.
 - Project Shelf moves only a complete project folder after an explicit
   confirmation. It records both locations and restores to the original path;
   it never deletes or re-clones repository contents.

@@ -63,6 +63,54 @@ import Testing
     #expect(CleanupGroup.make(from: [item]).count == 1)
 }
 
+@Test func olderXcodeArchiveCopiesBecomeACleanupGroup() {
+    let older = fixture(category: "xcode-archive-copies", size: 400 * 1024 * 1024)
+    let latest = ScanItem(
+        category: "xcode-archives",
+        label: "App latest archive",
+        path: "/Users/test/Archives/App.xcarchive",
+        sizeBytes: 200 * 1024 * 1024,
+        size: "200.0 MB",
+        modifiedAt: nil,
+        cleanable: false,
+        deleteMode: "none",
+        note: "Keep"
+    )
+
+    let groups = CleanupGroup.make(from: [older, latest])
+
+    #expect(groups.count == 1)
+    #expect(groups[0].rule.flag == "--xcode-archive-copies")
+    #expect(groups[0].rule.title == "Older Xcode archives")
+    #expect(groups[0].items.count == 1)
+}
+
+@Test @MainActor func cleanupConfirmationExplainsOlderArchivesStayDeleted() {
+    let older = fixture(category: "xcode-archive-copies", size: 400 * 1024 * 1024)
+    let caches = fixture(category: "browser-cache", size: 200 * 1024 * 1024)
+    let report = ScanReport(
+        totalBytes: older.sizeBytes + caches.sizeBytes,
+        total: "600.0 MB",
+        cleanableTotalBytes: older.sizeBytes + caches.sizeBytes,
+        cleanableTotal: "600.0 MB",
+        reportOnlyTotalBytes: 0,
+        reportOnlyTotal: "0 B",
+        count: 2,
+        items: [older, caches]
+    )
+    let model = AppModel(
+        backend: StubBackend(
+            scanReport: report,
+            cleanReport: CleanReport(totalBytes: 0, total: "0 B", count: 0, items: [])
+        )
+    )
+    model.selectedFlags = ["--xcode-archive-copies", "--browser-caches"]
+
+    #expect(model.cleanupConfirmationMessage.contains("Older Xcode archives are deleted permanently"))
+    #expect(model.cleanupConfirmationMessage.contains("The latest archive for each app is kept"))
+    #expect(model.cleanupConfirmationMessage.contains("Generated caches may be downloaded or rebuilt later"))
+}
+
 @Test func reportOnlyItemsNeverBecomeCleanupGroups() {
     let item = ScanItem(
         category: "xcode-archives",

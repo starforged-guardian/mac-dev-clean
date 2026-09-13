@@ -117,7 +117,7 @@ struct ContentView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will remove \(model.selectedSummary). Generated caches may be downloaded or rebuilt later.")
+            Text(model.cleanupConfirmationMessage)
         }
         .task(id: page) {
             if page == .simulators {
@@ -441,7 +441,7 @@ struct ReviewOnlyView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Keep, archive, or remove manually")
                             .font(.headline)
-                        Text("These items are never included in automatic cleanup.")
+                        Text("These items are never included in automatic cleanup. Older Xcode archive copies appear on Cleanup.")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()

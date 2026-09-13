@@ -21,6 +21,11 @@ SCAN_RECOMMENDATIONS: Tuple[Tuple[str, Set[str], str], ...] = (
         "mac-dev-clean clean --xcode-test-devices --dry-run",
     ),
     (
+        "older Xcode archives",
+        {"xcode-archive-copies"},
+        "mac-dev-clean clean --xcode-archive-copies --dry-run",
+    ),
+    (
         "Xcode DeviceSupport",
         {"xcode-device-support"},
         "mac-dev-clean clean --xcode-device-support --dry-run",

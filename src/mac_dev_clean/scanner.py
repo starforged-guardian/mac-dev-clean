@@ -8,6 +8,12 @@ from typing import Iterable, Iterator, List, Optional, Sequence, Set
 
 from .model import ScanTarget
 from .sim_prune import SimctlError, load_device_set_inventory
+from .xcode_archives import (
+    ARCHIVE_CATEGORY,
+    ARCHIVE_COPIES_CATEGORY,
+    classify_archives,
+    discover_archives,
+)
 
 
 @dataclass(frozen=True)
@@ -121,14 +127,6 @@ FIXED_LOCATIONS = (
         True,
         "contents",
         "Device support symbols and files recreated by Xcode when needed.",
-    ),
-    LocationSpec(
-        "xcode-archives",
-        "Xcode Archives",
-        "Library/Developer/Xcode/Archives",
-        False,
-        "none",
-        "App archives and dSYMs may be needed for releases and crash symbolication. Old exports can be archived to iCloud Drive after you verify they are no longer needed in Xcode Organizer.",
     ),
     LocationSpec(
         "simulator-caches",
@@ -609,6 +607,7 @@ def scan(
             include_project_derived_data=include_project_derived_data,
         )
     )
+    targets.extend(_scan_xcode_archives(home, categories=categories))
 
     if include_node_modules and (categories is None or "node-modules" in categories):
         roots = list(search_roots) if search_roots else default_search_roots(home, cwd)
@@ -729,6 +728,54 @@ def _scan_system_locations(
         )
         if target:
             yield target
+
+
+def _scan_xcode_archives(
+    home: Path,
+    categories: Optional[Set[str]] = None,
+) -> Iterator[ScanTarget]:
+    wanted = {ARCHIVE_CATEGORY, ARCHIVE_COPIES_CATEGORY}
+    if categories is not None and categories.isdisjoint(wanted):
+        return
+
+    records = discover_archives(home / "Library/Developer/Xcode/Archives")
+    latest, older = classify_archives(records)
+    include_latest = categories is None or ARCHIVE_CATEGORY in categories
+    include_older = categories is None or ARCHIVE_COPIES_CATEGORY in categories
+
+    if include_latest:
+        for record in latest:
+            target = _target_from_path(
+                path=record.path,
+                category=ARCHIVE_CATEGORY,
+                label=f"{record.display_name} latest archive",
+                cleanable=False,
+                delete_mode="none",
+                note=(
+                    "Kept for crash symbolication and Organizer uploads. "
+                    "Older copies of this app can be cleaned."
+                ),
+                safety_root=home,
+            )
+            if target:
+                yield target
+
+    if include_older:
+        for record in older:
+            target = _target_from_path(
+                path=record.path,
+                category=ARCHIVE_COPIES_CATEGORY,
+                label=f"{record.display_name} older archive",
+                cleanable=True,
+                delete_mode="tree",
+                note=(
+                    "Older archive copy. Cleaning keeps the latest archive for "
+                    "this app and permanently deletes this one."
+                ),
+                safety_root=home,
+            )
+            if target:
+                yield target
 
 
 def _scan_node_modules(

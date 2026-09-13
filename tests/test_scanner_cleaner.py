@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import os
+import plistlib
 import unittest
 from unittest.mock import patch
 
@@ -144,6 +145,8 @@ class ScannerCleanerTests(unittest.TestCase):
             archive_target = next(item for item in items if item.category == "xcode-archives")
             self.assertTrue(support_target.cleanable)
             self.assertFalse(archive_target.cleanable)
+            self.assertEqual(archive_target.path, archive)
+            self.assertNotIn("xcode-archive-copies", {item.category for item in items})
 
             result = clean_target(support_target)
 
@@ -151,6 +154,219 @@ class ScannerCleanerTests(unittest.TestCase):
             self.assertTrue(support_target.path.exists())
             self.assertFalse(symbol_cache.exists())
             self.assertTrue(archive.exists())
+
+    def test_scan_keeps_latest_xcode_archive_and_cleans_older_copies(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            older = _write_xcarchive(
+                home,
+                "2026-06-07",
+                "App 6-7-26, 1.00 PM.xcarchive",
+                name="App",
+                bundle_id="com.example.app",
+                created=datetime(2026, 6, 7, 17, 0, tzinfo=timezone.utc),
+            )
+            newest = _write_xcarchive(
+                home,
+                "2026-09-12",
+                "App 9-12-26, 8.00 PM.xcarchive",
+                name="App",
+                bundle_id="com.example.app",
+                created=datetime(2026, 9, 12, 20, 0, tzinfo=timezone.utc),
+            )
+            other = _write_xcarchive(
+                home,
+                "2026-05-10",
+                "Other 5-10-26, 3.00 PM.xcarchive",
+                name="Other",
+                bundle_id="com.example.other",
+                created=datetime(2026, 5, 10, 15, 0, tzinfo=timezone.utc),
+            )
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+            latest = [item for item in items if item.category == "xcode-archives"]
+            copies = [item for item in items if item.category == "xcode-archive-copies"]
+
+            self.assertEqual({item.path for item in latest}, {newest, other})
+            self.assertFalse(any(item.cleanable for item in latest))
+            self.assertEqual({item.path for item in copies}, {older})
+            self.assertTrue(copies[0].cleanable)
+            self.assertEqual(copies[0].delete_mode, "tree")
+
+            result = clean_target(copies[0])
+
+            self.assertTrue(result.removed)
+            self.assertFalse(older.exists())
+            self.assertTrue(newest.exists())
+            self.assertTrue(other.exists())
+
+    def test_xcode_archive_copies_keep_latest_ios_and_tv_with_shared_bundle_id(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            older_ios = _write_xcarchive(
+                home,
+                "2026-05-30",
+                "FamilyFlightPlaniOS 5-30-26, 8.33 PM.xcarchive",
+                name="FamilyFlightPlaniOS",
+                bundle_id="com.ravenvector.familyflightplan",
+                created=datetime(2026, 5, 31, 0, 33, tzinfo=timezone.utc),
+            )
+            newest_ios = _write_xcarchive(
+                home,
+                "2026-09-12",
+                "FamilyFlightPlaniOS 9-12-26, 10.31 AM.xcarchive",
+                name="FamilyFlightPlaniOS",
+                bundle_id="com.ravenvector.familyflightplan",
+                created=datetime(2026, 9, 12, 14, 31, tzinfo=timezone.utc),
+            )
+            older_tv = _write_xcarchive(
+                home,
+                "2026-05-30",
+                "FamilyFlightPlanTV 5-30-26, 8.46 PM.xcarchive",
+                name="FamilyFlightPlanTV",
+                bundle_id="com.ravenvector.familyflightplan",
+                created=datetime(2026, 5, 31, 0, 46, tzinfo=timezone.utc),
+            )
+            newest_tv = _write_xcarchive(
+                home,
+                "2026-09-12",
+                "FamilyFlightPlanTV 9-12-26, 12.12 PM.xcarchive",
+                name="FamilyFlightPlanTV",
+                bundle_id="com.ravenvector.familyflightplan",
+                created=datetime(2026, 9, 12, 16, 12, tzinfo=timezone.utc),
+            )
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            self.assertEqual(
+                {item.path for item in items if item.category == "xcode-archives"},
+                {newest_ios, newest_tv},
+            )
+            self.assertEqual(
+                {item.path for item in items if item.category == "xcode-archive-copies"},
+                {older_ios, older_tv},
+            )
+
+    def test_xcode_archive_copies_group_incomplete_archives_with_same_app_name(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            newest = _write_xcarchive(
+                home,
+                "2026-07-26",
+                "TalonRelay 7-26-26, 2.46 PM.xcarchive",
+                name="TalonRelay",
+                bundle_id="com.ravenvector.talonrelay",
+                created=datetime(2026, 7, 26, 18, 46, tzinfo=timezone.utc),
+            )
+            incomplete = (
+                home
+                / "Library/Developer/Xcode/Archives/2026-06-07"
+                / "TalonRelay 6-7-26, 6.28 PM.xcarchive"
+            )
+            incomplete.mkdir(parents=True)
+            (incomplete / "Products").mkdir()
+            (incomplete / "Products" / "app.bin").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            self.assertEqual(
+                {item.path for item in items if item.category == "xcode-archives"},
+                {newest},
+            )
+            self.assertEqual(
+                {item.path for item in items if item.category == "xcode-archive-copies"},
+                {incomplete},
+            )
+
+    def test_xcode_archive_copies_group_by_bundle_id_across_name_variants(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            older = _write_xcarchive(
+                home,
+                "2026-09-01",
+                "BlackwingVault 9-1-26, 5.03 PM.xcarchive",
+                name="BlackwingVault",
+                bundle_id="com.ravenvector.blackwingvault",
+                created=datetime(2026, 9, 1, 21, 3, tzinfo=timezone.utc),
+            )
+            newest = _write_xcarchive(
+                home,
+                "2026-09-12",
+                "Blackwing Vault 9-12-26, 9.17 PM.xcarchive",
+                name="Blackwing Vault",
+                bundle_id="com.ravenvector.blackwingvault",
+                created=datetime(2026, 9, 13, 1, 17, tzinfo=timezone.utc),
+            )
+
+            items = scan(home=home, cwd=home, include_node_modules=False)
+
+            self.assertEqual(
+                {item.path for item in items if item.category == "xcode-archives"},
+                {newest},
+            )
+            self.assertEqual(
+                {item.path for item in items if item.category == "xcode-archive-copies"},
+                {older},
+            )
+
+    def test_clean_refuses_latest_xcode_archive_even_if_marked_cleanable(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            newest = _write_xcarchive(
+                home,
+                "2026-09-12",
+                "App 9-12-26, 8.00 PM.xcarchive",
+                name="App",
+                bundle_id="com.example.app",
+                created=datetime(2026, 9, 12, 20, 0, tzinfo=timezone.utc),
+            )
+            _write_xcarchive(
+                home,
+                "2026-06-07",
+                "App 6-7-26, 1.00 PM.xcarchive",
+                name="App",
+                bundle_id="com.example.app",
+                created=datetime(2026, 6, 7, 17, 0, tzinfo=timezone.utc),
+            )
+            target = ScanTarget(
+                category="xcode-archive-copies",
+                label="App older archive",
+                path=newest,
+                size_bytes=LARGE_PAYLOAD_BYTES,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="tree",
+                safety_root=home,
+            )
+
+            result = clean_target(target)
+
+            self.assertFalse(result.removed)
+            self.assertIn("latest archive", result.error)
+            self.assertTrue(newest.exists())
+
+    def test_clean_refuses_forged_xcode_archive_path(self):
+        with TemporaryDirectory() as temp:
+            home = Path(temp)
+            forged = home / "Documents/App.xcarchive"
+            forged.mkdir(parents=True)
+            (forged / "keep.bin").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+            target = ScanTarget(
+                category="xcode-archive-copies",
+                label="App older archive",
+                path=forged,
+                size_bytes=LARGE_PAYLOAD_BYTES,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="tree",
+                safety_root=home,
+            )
+
+            result = clean_target(target)
+
+            self.assertFalse(result.removed)
+            self.assertIn("known Xcode archive location", result.error)
+            self.assertTrue(forged.exists())
 
     def test_scan_finds_xcode_device_logs_and_test_device_clones(self):
         with TemporaryDirectory() as temp:
@@ -447,6 +663,30 @@ class ScannerCleanerTests(unittest.TestCase):
             )
 
             self.assertEqual([item for item in items if item.category == "node-modules"], [])
+
+
+def _write_xcarchive(
+    home: Path,
+    date_folder: str,
+    archive_name: str,
+    *,
+    name: str,
+    bundle_id: str,
+    created: datetime,
+) -> Path:
+    archive = home / "Library/Developer/Xcode/Archives" / date_folder / archive_name
+    archive.mkdir(parents=True)
+    info = {
+        "Name": name,
+        "SchemeName": name,
+        "CreationDate": created,
+        "ApplicationProperties": {"CFBundleIdentifier": bundle_id},
+    }
+    with (archive / "Info.plist").open("wb") as handle:
+        plistlib.dump(info, handle)
+    (archive / "Products").mkdir()
+    (archive / "Products" / "app.bin").write_bytes(b"x" * LARGE_PAYLOAD_BYTES)
+    return archive
 
 
 if __name__ == "__main__":
