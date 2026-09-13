@@ -133,6 +133,7 @@ struct CleanupRule: Hashable, Sendable {
         "xcode-device-support": .init(flag: "--xcode-device-support", title: "Device support", symbol: "iphone.gen3"),
         "xcode-device-logs": .init(flag: "--xcode-device-logs", title: "Device logs", symbol: "doc.text.magnifyingglass"),
         "xcode-test-devices": .init(flag: "--xcode-test-devices", title: "XCTest simulator clones", symbol: "square.stack.3d.up.fill"),
+        "xcode-archive-copies": .init(flag: "--xcode-archive-copies", title: "Older Xcode archives", symbol: "shippingbox"),
         "simulator-caches": .init(flag: "--simulator-caches", title: "Simulator caches", symbol: "iphone.and.arrow.forward"),
         "simulator-dyld-cache": .init(flag: "--simulator-dyld-cache", title: "Simulator runtime caches", symbol: "memorychip.fill"),
         "project-derived-data": .init(flag: "--project-derived-data", title: "Project DerivedData", symbol: "folder.badge.gearshape"),
@@ -211,5 +212,54 @@ enum ByteFormatter {
             return "\(bytes) B"
         }
         return String(format: "%.1f %@", value, units[unitIndex])
+    }
+}
+
+struct SimulatorInventory: Decodable, Sendable {
+    let devices: [SimulatorDevice]
+}
+
+struct SimulatorDevice: Decodable, Identifiable, Hashable, Sendable {
+    let udid: String
+    let name: String
+    let runtimeIdentifier: String
+    let state: String
+    let isAvailable: Bool
+    let lastBootedAt: String?
+    let totalSizeBytes: Int64
+
+    var id: String { udid }
+    var canDelete: Bool { state.lowercased() == "shutdown" && UUID(uuidString: udid) != nil }
+    var runtimeName: String {
+        let suffix = runtimeIdentifier.replacingOccurrences(of: "com.apple.CoreSimulator.SimRuntime.", with: "")
+        let parts = suffix.split(separator: "-", maxSplits: 1)
+        guard parts.count == 2 else { return suffix }
+        return "\(parts[0]) \(parts[1].replacingOccurrences(of: "-", with: "."))"
+    }
+    var lastBootedDescription: String {
+        guard let lastBootedAt else { return "No recorded boot" }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: lastBootedAt) ?? ISO8601DateFormatter().date(from: lastBootedAt)
+        guard let date else { return "Last boot unknown" }
+        return "Last boot: \(date.formatted(date: .abbreviated, time: .shortened))"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case udid, name, state
+        case runtimeIdentifier = "runtime_identifier"
+        case isAvailable = "is_available"
+        case lastBootedAt = "last_booted_at"
+        case totalSizeBytes = "total_size_bytes"
+    }
+}
+
+struct SimulatorActionReport: Decodable, Sendable {
+    let dryRun: Bool
+    let targets: [SimulatorDevice]
+
+    enum CodingKeys: String, CodingKey {
+        case dryRun = "dry_run"
+        case targets
     }
 }

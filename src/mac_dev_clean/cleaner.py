@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import errno
 import shutil
 import stat
 from pathlib import Path
 from typing import Iterable, List
 
 from .model import CleanResult, ScanTarget
+from .xcode_archives import is_latest_xcode_archive, looks_like_xcode_archive_parts
 from .sim_prune import (
     SimctlError,
     delete_test_clones,
@@ -41,6 +43,7 @@ CATEGORY_DELETE_MODES = {
     "browser-cache": "contents",
     "node-modules": "tree",
     "project-derived-data": "tree",
+    "xcode-archive-copies": "tree",
 }
 
 FIXED_CATEGORY_SUFFIXES = {
@@ -202,6 +205,9 @@ def validate_target(target: ScanTarget) -> str:
             resolved.relative_to(safety_root).parts, resolved
         ):
             return "refusing to clean a directory without Xcode DerivedData markers"
+    if target.delete_mode == "tree" and target.category == "xcode-archive-copies":
+        if not resolved.is_dir():
+            return "Xcode archive cleanup requires an .xcarchive directory"
     if target.delete_mode == "contents" and not path.is_dir():
         return "contents mode requires a directory"
     if target.delete_mode == "simctl-device-set" and not path.is_dir():
@@ -235,6 +241,13 @@ def validate_category_path(target: ScanTarget, resolved: Path, safety_root: Path
             return "refusing to clean a directory without Xcode DerivedData markers"
         return ""
 
+    if target.category == "xcode-archive-copies":
+        if not looks_like_xcode_archive_parts(parts):
+            return "target path does not match a known Xcode archive location"
+        if is_latest_xcode_archive(resolved, safety_root):
+            return "refusing to delete the latest archive for this app"
+        return ""
+
     allowed_suffixes = FIXED_CATEGORY_SUFFIXES.get(target.category)
     if allowed_suffixes and tuple(parts) in allowed_suffixes:
         return ""
@@ -248,14 +261,25 @@ def validate_category_path(target: ScanTarget, resolved: Path, safety_root: Path
 def _remove_contents(path: Path) -> None:
     if path.is_symlink() or not path.is_dir():
         raise OSError("refusing to clean contents of a non-directory or symlink")
+    failures = []
     for child in path.iterdir():
-        _remove_path(child)
+        try:
+            _remove_path(child)
+        except FileNotFoundError:
+            continue  # Another process removed this cache entry first.
+        except OSError as exc:
+            if exc.errno in {errno.ENOTEMPTY, errno.EBUSY}:
+                failures.append(f"{child.name}: cache is busy or being recreated. Quit the app that uses it, then scan and clean again.")
+            else:
+                failures.append(f"{child.name}: {exc}")
+    if failures:
+        raise OSError("Some cache entries could not be removed. " + "\n".join(failures[:5]))
 
 
 def _remove_path(path: Path) -> None:
     try:
         mode = os.lstat(path).st_mode
-    except OSError:
+    except FileNotFoundError:
         return
 
     if stat.S_ISLNK(mode) or stat.S_ISREG(mode):
@@ -263,7 +287,15 @@ def _remove_path(path: Path) -> None:
     elif stat.S_ISDIR(mode):
         if not shutil.rmtree.avoids_symlink_attacks:
             raise OSError("refusing directory deletion without symlink-safe rmtree support")
-        shutil.rmtree(path)
+        failures = []
+
+        def onerror(function, failed_path, exc_info):
+            if not isinstance(exc_info[1], FileNotFoundError):
+                failures.append(exc_info[1])
+
+        shutil.rmtree(path, onerror=onerror)
+        if failures:
+            raise failures[0]
 
 
 def _is_relative_to_or_equal(path: Path, root: Path) -> bool:

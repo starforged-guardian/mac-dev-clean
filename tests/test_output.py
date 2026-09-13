@@ -46,6 +46,36 @@ class OutputTests(unittest.TestCase):
         self.assertIn("mac-dev-clean clean --xcode-device-support --dry-run", output)
         self.assertIn("mac-dev-clean clean --browser-caches --dry-run", output)
         self.assertNotIn("xcode-archives --dry-run", output)
+        self.assertNotIn("xcode-archive-copies --dry-run", output)
+
+    def test_render_scan_table_suggests_older_xcode_archive_cleanup(self):
+        items = [
+            ScanTarget(
+                category="xcode-archive-copies",
+                label="App older archive",
+                path=Path("/tmp/home/Library/Developer/Xcode/Archives/2026-06-07/App.xcarchive"),
+                size_bytes=3 * 1024 * 1024 * 1024,
+                modified_at=None,
+                cleanable=True,
+                delete_mode="tree",
+            ),
+            ScanTarget(
+                category="xcode-archives",
+                label="App latest archive",
+                path=Path("/tmp/home/Library/Developer/Xcode/Archives/2026-09-12/App.xcarchive"),
+                size_bytes=1024 * 1024 * 1024,
+                modified_at=None,
+                cleanable=False,
+                delete_mode="none",
+            ),
+        ]
+
+        output = render_scan_table(items)
+
+        self.assertIn("Cleanable:    3.0 GB across 1 item(s)", output)
+        self.assertIn("Review only:  1.0 GB across 1 item(s)", output)
+        self.assertIn("mac-dev-clean clean --xcode-archive-copies --dry-run", output)
+        self.assertNotIn("xcode-archives --dry-run", output)
 
     def test_scan_report_json_includes_cleanable_and_report_only_totals(self):
         payload = json.loads(

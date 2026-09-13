@@ -12,9 +12,16 @@ to inspect and clean disk usage without remembering category flags.
 - Cleanup is limited to the cleanable groups selected in the UI and requires a
   native macOS confirmation immediately before deletion.
 - Review-only locations can be revealed in Finder but are never sent to the
-  cleanup command.
-- The iCloud guidance opens Finder. The app never moves, uploads, evicts, or
-  deletes iCloud Drive files itself.
+  cleanup command. The latest Xcode archive for each app stays review-only;
+  older archive copies appear in Cleanup only after they are classified as
+  extras.
+- Project Shelf moves only a complete project folder after an explicit
+  confirmation. It records both locations and restores to the original path;
+  it never deletes or re-clones repository contents.
+- iCloud Drive controls upload and eviction. The app can move a project into the
+  user's iCloud Drive folder, but it does not claim space was reclaimed until
+  macOS evicts the local download. External-volume shelves reclaim internal SSD
+  space directly.
 - Paths, file sizes, and scan results stay on the Mac. The app has no analytics,
   telemetry, advertising, or automatic network requests. The Raven Vector link
   opens the website only when the user chooses it.
@@ -27,6 +34,30 @@ developer caches across the user's Library. It should not require Full Disk
 Access for its normal scan. macOS may still enforce permissions for locations
 outside the app's supported automatic scan.
 
+## Review simulator storage
+
+Choose **Simulators**, or **Review large simulator devices** on Cleanup or Review
+Only. Devices are sorted by reported size and show their name, runtime, state,
+last boot, and UUID so you can match large folders from a disk-usage tool.
+
+Use **Delete Device…** only for a device whose local apps and test data you no
+longer need. The confirmation identifies the exact device and explains that its
+data cannot be recovered. Active or transitioning devices cannot be deleted;
+the Python engine checks the live state immediately before requesting deletion
+of that one UUID. No device is selected automatically, and the app never shuts
+down a simulator or deletes its installed runtime. Keep your useful phone,
+tablet, and TV configurations for testing.
+
+Reported device sizes can include shared APFS data and are not a promise of
+reclaimed bytes. Free space refreshes after each deletion. This screen is
+separate from cache cleanup and does not require runtime-image management to
+succeed. If Xcode's simulator service fails, refresh after it becomes available.
+
+Busy browser caches may be recreated while a browser runs. Cleanup continues
+with other entries and reports any skipped entries; quit the owning browser,
+then scan and clean again. It does not terminate the browser or repeatedly chase
+new cache files.
+
 ## Architecture
 
 The app source lives in `macos/Sources/MacDevCleanApp`. `Backend.swift` launches
@@ -38,6 +69,13 @@ The UI intentionally passes explicit cleanup flags for selected cleanable
 groups. It never invokes the CLI's broad no-argument shortcut. This keeps the
 confirmation dialog and the backend operation aligned with what is visible in
 the app.
+
+`RepositoryShelf.swift` owns project discovery, allocated-size measurement,
+catalog persistence, exact-folder moves, and restoration. `RepositoryShelfView`
+surfaces active and shelved projects. The catalog is stored under Application
+Support; project data remains in the user-selected folder. Moving the complete
+folder, rather than treating a remote Git server as a backup, preserves ignored
+files and other local-only state.
 
 ## Run and test locally
 

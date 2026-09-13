@@ -3,6 +3,8 @@ import SwiftUI
 enum SidebarPage: String, CaseIterable, Identifiable {
     case cleanup = "Cleanup"
     case review = "Review Only"
+    case simulators = "Simulators"
+    case projects = "Project Shelf"
     case about = "About"
 
     var id: String { rawValue }
@@ -10,6 +12,8 @@ enum SidebarPage: String, CaseIterable, Identifiable {
         switch self {
         case .cleanup: "sparkles"
         case .review: "archivebox"
+        case .simulators: "iphone.gen3"
+        case .projects: "externaldrive.badge.icloud"
         case .about: "info.circle"
         }
     }
@@ -34,6 +38,8 @@ struct ContentView: View {
             Group {
                 if page == .about {
                     AboutView()
+                } else if page == .projects {
+                    RepositoryShelfView()
                 } else {
                     VStack(spacing: 0) {
                         header
@@ -47,7 +53,14 @@ struct ContentView: View {
         .frame(minWidth: 900, minHeight: 640)
         .toolbar {
             ToolbarItemGroup {
-                if page != .about {
+                if page == .simulators {
+                    Button {
+                        Task { await model.scanSimulators() }
+                    } label: {
+                        Label("Refresh Simulators", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(model.isBusy)
+                } else if page == .cleanup || page == .review || page == nil {
                     Button {
                         Task { await model.scan() }
                     } label: {
@@ -73,6 +86,24 @@ struct ContentView: View {
                         .disabled(model.isBusy || model.selectedFlags.isEmpty)
                         .help("Clean the selected categories")
                     }
+                } else if page == .projects {
+                    Button {
+                        Task { await model.findHomeRepositories() }
+                    } label: {
+                        Label("Find Repositories", systemImage: "magnifyingglass")
+                    }
+                    .disabled(model.isBusy)
+                    .help("Find Git repositories within three levels of your home folder")
+
+                    Button {
+                        Task { await model.addProjectFolder() }
+                    } label: {
+                        Label("Add Project", systemImage: "plus")
+                    }
+                    .disabled(model.isBusy)
+
+                    Button("Choose Shelf…") { model.chooseShelfLocation() }
+                        .disabled(model.isBusy)
                 }
             }
         }
@@ -86,9 +117,17 @@ struct ContentView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will remove \(model.selectedSummary). Generated caches may be downloaded or rebuilt later.")
+            Text(model.cleanupConfirmationMessage)
         }
-        .task { await model.scanIfNeeded() }
+        .task(id: page) {
+            if page == .simulators {
+                await model.scanSimulators()
+            } else if page == .projects {
+                await model.loadRepositoryShelfIfNeeded()
+            } else if page != .about {
+                await model.scanIfNeeded()
+            }
+        }
     }
 
     private var sidebarFooter: some View {
@@ -119,25 +158,27 @@ struct ContentView: View {
                 Spacer()
             }
 
-            HStack(spacing: 12) {
-                SummaryCard(
-                    title: "Cleanable",
-                    value: model.report?.cleanableTotal ?? "—",
-                    symbol: "sparkles",
-                    color: .green
-                )
-                SummaryCard(
-                    title: "Review only",
-                    value: model.report?.reportOnlyTotal ?? "—",
-                    symbol: "archivebox",
-                    color: .orange
-                )
-                SummaryCard(
-                    title: "Selected",
-                    value: model.selectedFlags.isEmpty ? "None" : model.selectedSummary,
-                    symbol: "checkmark.circle",
-                    color: .blue
-                )
+            if page != .simulators {
+                HStack(spacing: 12) {
+                    SummaryCard(
+                        title: "Cleanable",
+                        value: model.report?.cleanableTotal ?? "—",
+                        symbol: "sparkles",
+                        color: .green
+                    )
+                    SummaryCard(
+                        title: "Review only",
+                        value: model.report?.reportOnlyTotal ?? "—",
+                        symbol: "archivebox",
+                        color: .orange
+                    )
+                    SummaryCard(
+                        title: "Selected",
+                        value: model.selectedFlags.isEmpty ? "None" : model.selectedSummary,
+                        symbol: "checkmark.circle",
+                        color: .blue
+                    )
+                }
             }
 
             HStack(spacing: 12) {
@@ -153,6 +194,15 @@ struct ContentView: View {
                     symbol: "externaldrive",
                     color: .purple
                 )
+            }
+
+            if page == .cleanup || page == .review {
+                Button {
+                    page = .simulators
+                } label: {
+                    Label("Review large simulator devices…", systemImage: "iphone.gen3")
+                }
+                .disabled(model.isBusy)
             }
 
             if let error = model.errorMessage {
@@ -183,7 +233,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var content: some View {
-        if model.report == nil && model.isBusy {
+        if page == .simulators {
+            SimulatorDevicesView()
+        } else if model.report == nil && model.isBusy {
             ContentUnavailableView {
                 Label("Scanning", systemImage: "internaldrive")
             } description: {
@@ -195,7 +247,7 @@ struct ContentView: View {
                 ReviewOnlyView()
             case .cleanup, .none:
                 CleanupGroupsView()
-            case .about:
+            case .projects, .about, .simulators:
                 EmptyView()
             }
         }
@@ -389,7 +441,7 @@ struct ReviewOnlyView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Keep, archive, or remove manually")
                             .font(.headline)
-                        Text("These items are never included in automatic cleanup.")
+                        Text("These items are never included in automatic cleanup. Older Xcode archive copies appear on Cleanup.")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -492,5 +544,85 @@ struct MessageBanner: View {
         }
         .padding(10)
         .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct SimulatorDevicesView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var pendingDeletion: SimulatorDevice?
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                Text("Simulator devices")
+                    .font(.title2.bold())
+                Text("Review devices you no longer need. Keep the iPhone, iPad, and Apple TV configurations you still use for testing. Deleting a device permanently removes its installed apps, accounts, and local test data.")
+                    .foregroundStyle(.secondary)
+                Text("Sizes are reported by Xcode and may include shared data, so actual space recovered can be smaller. Installed runtimes are kept for reuse.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if model.activity == .scanningSimulators {
+                    ProgressView("Reading devices…")
+                } else if model.simulatorInventory != nil && model.simulatorDevices.isEmpty {
+                    Text("No simulator devices found.")
+                } else if model.simulatorInventory == nil {
+                    Text("Refresh to load simulator devices.")
+                }
+                ForEach(model.simulatorDevices) { device in
+                    HStack(alignment: .top, spacing: 16) {
+                        Image(systemName: "iphone.gen3")
+                            .font(.title2)
+                            .foregroundStyle(.blue)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(device.name).font(.headline)
+                            Text("\(device.runtimeName) · \(device.state)\(device.isAvailable ? "" : " · Runtime unavailable")")
+                                .foregroundStyle(.secondary)
+                            Text(device.lastBootedDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(device.udid)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                            if !device.canDelete {
+                                Text("In use or unavailable for deletion. Shut down in Xcode when testing is finished, then refresh.")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 10) {
+                            Text(ByteFormatter.string(device.totalSizeBytes))
+                                .font(.headline.monospacedDigit())
+                            Button("Delete Device…", role: .destructive) {
+                                pendingDeletion = device
+                            }
+                            .disabled(model.isBusy || !device.canDelete)
+                            .accessibilityLabel("Delete \(device.name), \(device.runtimeName)")
+                        }
+                    }
+                    .padding(16)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding(20)
+        }
+        .confirmationDialog(
+            "Delete \(pendingDeletion?.name ?? "simulator")?",
+            isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingDeletion
+        ) { device in
+            Button("Delete Device and Data", role: .destructive) {
+                pendingDeletion = nil
+                Task { await model.deleteSimulator(device) }
+            }
+            Button("Cancel", role: .cancel) { pendingDeletion = nil }
+        } message: { device in
+            Text("\(device.name) · \(device.runtimeName)\n\(device.udid)\n\nPermanently remove this device and all its apps, accounts, and local data. This cannot be undone. Reported size: \(ByteFormatter.string(device.totalSizeBytes)); actual recovery may be smaller. The runtime stays installed. Current device state will be checked again before deletion.")
+        }
     }
 }

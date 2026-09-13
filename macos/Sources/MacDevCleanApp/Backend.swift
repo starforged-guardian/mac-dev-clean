@@ -38,6 +38,8 @@ struct CommandResult: Sendable {
 protocol CleanupBackendProtocol: Sendable {
     func scan() async throws -> ScanReport
     func clean(flags: [String]) async throws -> CleanReport
+    func simulatorDevices() async throws -> SimulatorInventory
+    func deleteSimulator(udid: String) async throws -> SimulatorActionReport
 }
 
 struct CleanupBackend: CleanupBackendProtocol, Sendable {
@@ -66,6 +68,22 @@ struct CleanupBackend: CleanupBackendProtocol, Sendable {
         }
         let result = try await run(arguments: ["clean"] + flags + ["--json"])
         return try Self.cleanReport(from: result)
+    }
+
+    func simulatorDevices() async throws -> SimulatorInventory {
+        let result = try await run(arguments: ["list-devices", "--json"], module: "mac_dev_clean.xcode_sim_prune")
+        guard result.terminationStatus == 0 else {
+            throw Self.commandFailure(operation: "simulator scan", result: result)
+        }
+        return try Self.decode(SimulatorInventory.self, from: result.stdout)
+    }
+
+    func deleteSimulator(udid: String) async throws -> SimulatorActionReport {
+        let result = try await run(arguments: ["delete-device", "--udid", udid, "--json"], module: "mac_dev_clean.xcode_sim_prune")
+        guard result.terminationStatus == 0 else {
+            throw Self.commandFailure(operation: "simulator deletion", result: result)
+        }
+        return try Self.decode(SimulatorActionReport.self, from: result.stdout)
     }
 
     static func cleanReport(from result: CommandResult) throws -> CleanReport {
@@ -123,14 +141,14 @@ struct CleanupBackend: CleanupBackendProtocol, Sendable {
         return environment
     }
 
-    private func run(arguments: [String]) async throws -> CommandResult {
+    private func run(arguments: [String], module: String = "mac_dev_clean") async throws -> CommandResult {
         let location = location
         return try await Task.detached(priority: .userInitiated) {
             let process = Process()
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
             process.executableURL = location.pythonURL
-            process.arguments = ["-m", "mac_dev_clean"] + arguments
+            process.arguments = ["-m", module] + arguments
             process.currentDirectoryURL = location.workingDirectory
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
@@ -141,9 +159,14 @@ struct CleanupBackend: CleanupBackendProtocol, Sendable {
             )
 
             try process.run()
-            process.waitUntilExit()
+            // Drain both pipes while Python runs; a large inventory can exceed
+            // pipe capacity and deadlock if we wait for exit before reading.
+            let stderrTask = Task.detached {
+                stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            }
             let stdout = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-            let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            let stderrData = await stderrTask.value
+            process.waitUntilExit()
             let stderr = String(data: stderrData, encoding: .utf8) ?? ""
 
             return CommandResult(

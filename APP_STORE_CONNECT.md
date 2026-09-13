@@ -125,9 +125,10 @@ choosing them one at a time.
 
 KEEP IMPORTANT DATA SEPARATE
 
-Archives, device backups, project history, and other sensitive locations remain
-review-only. mac-dev-clean can reveal them in Finder but never includes them in
-automatic cleanup.
+The latest Xcode archive for each app, device backups, project history, and
+other sensitive locations remain review-only. Older archive copies can be
+cleaned after confirmation. mac-dev-clean can reveal review-only items in Finder
+but never includes them in automatic cleanup.
 
 PRIVATE BY DESIGN
 
@@ -287,8 +288,8 @@ private repository, device identifier, signing identity, or Apple Account.
    individual sizes, notes, and Reveal controls.
 4. **Confirm before removal** — Native cleanup confirmation dialog with a
    realistic selected total.
-5. **Keep important data review-only** — Review Only page showing archives or
-   backups and the explanatory safety copy.
+5. **Keep important data review-only** — Review Only page showing the latest
+   Xcode archives or backups and the explanatory safety copy.
 6. **Private, local, and open source** — About page with version and Raven
    Vector link. Use this only after the first five clearly demonstrate utility.
 

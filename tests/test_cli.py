@@ -244,6 +244,68 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         clean_targets.assert_called_once_with([clone_target, log_target], dry_run=True)
 
+    def test_xcode_archive_copies_flag_cleans_only_older_archives(self):
+        older = ScanTarget(
+            category="xcode-archive-copies",
+            label="App older archive",
+            path=Path("/tmp/home/Library/Developer/Xcode/Archives/2026-06-07/App.xcarchive"),
+            size_bytes=1,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="tree",
+            safety_root=Path("/tmp/home"),
+        )
+        latest = ScanTarget(
+            category="xcode-archives",
+            label="App latest archive",
+            path=Path("/tmp/home/Library/Developer/Xcode/Archives/2026-09-12/App.xcarchive"),
+            size_bytes=1,
+            modified_at=None,
+            cleanable=False,
+            delete_mode="none",
+            safety_root=Path("/tmp/home"),
+        )
+
+        with contextlib.ExitStack() as stack:
+            scan_mock = stack.enter_context(
+                patch("mac_dev_clean.cli.scan", return_value=[older, latest])
+            )
+            clean_targets = stack.enter_context(
+                patch("mac_dev_clean.cli.clean_targets", return_value=[])
+            )
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+            code = main(["clean", "--xcode-archive-copies", "--dry-run"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(scan_mock.call_args.kwargs["categories"], {"xcode-archive-copies"})
+        clean_targets.assert_called_once_with([older], dry_run=True)
+
+    def test_xcode_caches_flag_does_not_include_archive_copies(self):
+        older = ScanTarget(
+            category="xcode-archive-copies",
+            label="App older archive",
+            path=Path("/tmp/home/Library/Developer/Xcode/Archives/2026-06-07/App.xcarchive"),
+            size_bytes=1,
+            modified_at=None,
+            cleanable=True,
+            delete_mode="tree",
+            safety_root=Path("/tmp/home"),
+        )
+
+        with contextlib.ExitStack() as stack:
+            scan_mock = stack.enter_context(patch("mac_dev_clean.cli.scan", return_value=[older]))
+            clean_targets = stack.enter_context(
+                patch("mac_dev_clean.cli.clean_targets", return_value=[])
+            )
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+            code = main(["clean", "--xcode-caches", "--dry-run"])
+
+        self.assertEqual(code, 0)
+        self.assertNotIn("xcode-archive-copies", scan_mock.call_args.kwargs["categories"])
+        clean_targets.assert_called_once_with([], dry_run=True)
+
 
 if __name__ == "__main__":
     unittest.main()

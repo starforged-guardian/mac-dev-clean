@@ -18,6 +18,7 @@ FLAG_TO_CATEGORIES = {
     "xcode_device_support": {"xcode-device-support"},
     "xcode_device_logs": {"xcode-device-logs"},
     "xcode_test_devices": {"xcode-test-devices"},
+    "xcode_archive_copies": {"xcode-archive-copies"},
     "xcode_caches": {
         "xcode-derived-data",
         "xcode-module-cache",
@@ -123,6 +124,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--xcode-test-devices",
         action="store_true",
         help="Delete shutdown XCTest simulator clones through simctl.",
+    )
+    clean_parser.add_argument(
+        "--xcode-archive-copies",
+        action="store_true",
+        help="Delete older Xcode archives, keeping the latest archive for each app.",
     )
     clean_parser.add_argument(
         "--xcode-caches",

@@ -1,0 +1,15 @@
+#!/bin/zsh
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+./scripts/audit_secrets.sh
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks is required by this repository's security hook." >&2
+  echo "Install it with: brew install gitleaks" >&2
+  exit 1
+fi
+
+gitleaks git --redact --no-banner --no-color .
