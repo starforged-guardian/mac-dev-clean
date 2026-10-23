@@ -311,6 +311,26 @@ private struct ShelvedProjectCard: View {
         FileManager.default.fileExists(atPath: project.originalPath)
     }
 
+    /// Why Restore is blocked when something already sits at the original path.
+    private var occupiedExplanation: String {
+        let original = project.displayOriginalPath
+        if let target = try? FileManager.default.destinationOfSymbolicLink(atPath: project.originalPath) {
+            let resolved = URL(fileURLWithPath: target, relativeTo: URL(fileURLWithPath: project.originalPath).deletingLastPathComponent())
+                .standardizedFileURL.path
+            if resolved == URL(fileURLWithPath: project.shelfPath).standardizedFileURL.path {
+                return "\(original) is a link to this shelved copy. Delete the link, then restore."
+            }
+            return "\(original) is a link to another location. Remove the link, then restore."
+        }
+        return "Something already exists at \(original). Rename or move it aside, then restore. The shelved copy is never merged into an existing folder."
+    }
+
+    private var restoreHelp: String {
+        if !shelfIsAvailable { return "The shelf location isn't available. Connect the drive or sign in to iCloud Drive." }
+        if originalIsOccupied { return occupiedExplanation }
+        return "Move this project back to \(project.displayOriginalPath)"
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: "archivebox.fill")
@@ -335,6 +355,12 @@ private struct ShelvedProjectCard: View {
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+                if shelfIsAvailable && originalIsOccupied {
+                    Text(occupiedExplanation)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack(spacing: 12) {
                     if let branch = project.branch {
                         Label(branch, systemImage: "arrow.triangle.branch")
@@ -352,11 +378,16 @@ private struct ShelvedProjectCard: View {
                 .font(.headline.monospacedDigit())
             Button("Reveal") { model.revealPath(project.shelfPath) }
                 .disabled(!shelfIsAvailable)
+            if originalIsOccupied {
+                Button("Reveal Original") { model.revealPath(project.originalPath) }
+                    .help("Show what's at \(project.displayOriginalPath) in Finder")
+            }
             Button("Restore") {
                 Task { await model.restoreProject(project) }
             }
             .buttonStyle(.borderedProminent)
             .disabled(model.isBusy || !shelfIsAvailable || originalIsOccupied)
+            .help(restoreHelp)
         }
         .padding(14)
         .background(.blue.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))

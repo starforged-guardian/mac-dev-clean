@@ -134,3 +134,54 @@ When adding a bundled resource:
 New Python engine modules must also be listed in the **Bundle Python cleanup
 engine** script `inputFiles` and `outputFiles`. Xcode user-script sandboxing
 refuses to copy any `.py` file that is not declared there.
+
+## Disk Map
+
+Choose **Disk Map → Map Startup Disk** for an explicit, read-only scan of the
+startup System and Data volumes. **Choose Folder…** maps any selected folder or
+external volume. Select a tile or a largest-entry row, then **Open Folder** to
+drill down or **Finder** to inspect the original. You can also double-click a
+folder tile or use its context menu. **Back** returns to the previous folder or
+scan, and the disk icon returns to the current scan root. **New Scan** offers a
+startup-disk scan or folder selection; the refresh button rescans the current
+location. **Scan details** expands accounting and access notes.
+
+Tile area represents allocated blocks, and colors describe Applications,
+Developer, Caches, Media, Documents, System, and Other locations. Colors do not
+indicate whether files are safe to delete. This page has no deletion controls.
+The capacity bar shows mapped usage (blue), unaccounted usage (gray), and free
+space (green). Folder scans label usage outside the selected folder separately.
+
+The scan reads metadata only, includes hidden files and package contents, does
+not follow symlinks, counts hard links once, and skips mount boundaries. It uses
+directory-relative descriptors with no-follow checks. A startup scan explicitly
+walks the Data volume once. The sealed, read-only System volume is shown as one
+tile sized from the volume's reported usage; opening it walks it on demand.
+System and Data share a device number in their APFS
+volume group, so firmlinks from the System volume are detected by filesystem ID
+(`f_fsid`) and skipped. Mount points listed in the kernel mount table (external,
+network, and simulator runtime volumes) are skipped by path before any `stat`,
+so a stale network share cannot stall the scan. Other mounted disks must be
+selected separately. It does not read file contents. Cloud placeholder folders
+are skipped, and dataless-file materialization is turned off for the scanning
+thread, so a missed placeholder fails as unreadable instead of downloading.
+
+The map is a dated snapshot, not a live monitor. Protected/unreadable paths,
+changing files, and skipped mounts are reported. macOS may ask for folder
+access; grant Full Disk Access in System Settings for greater coverage. APFS
+snapshots, shared clones, filesystem metadata, and inaccessible files mean
+allocated totals can differ from volume usage and cannot predict reclaimed
+space. The UI keeps this discrepancy visible instead of labeling it as junk.
+
+Directories are listed in batches with `getattrlistbulk` (one call returns
+names, types, allocated sizes, and mount status for many entries), and up to
+eight utility-QoS threads walk subtrees in parallel. Files below the retained
+levels never get a name or path string. Scanning runs off the main thread and
+can be cancelled; leaving Disk Map also
+cancels an active scan. Cancellation and errors preserve the previous map. The
+scanner retains two levels and the largest 64 entries per directory, combining
+the remaining bytes in an Other tile to bound memory use. Retention trims in
+batches, so very large flat folders stay linear to scan. Opening a deeper
+folder scans it on demand. It traverses at most 256 directory levels, keeps
+at most 128 directory descriptors open, and reports anything skipped by either
+limit. Opening the page does not start a scan.

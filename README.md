@@ -123,6 +123,12 @@ stay on a separate screen and can be revealed in Finder. An About page includes
 Raven Vector branding, the installed app version, and a link to
 [ravenvector.com](https://ravenvector.com).
 
+The native app includes **Disk Map**, an interactive, color-coded treemap of
+the startup disk or a folder/volume you choose. Select tiles to inspect sizes,
+open folders to drill down, and reveal files in Finder. Scans are read-only and
+cancellable, with explicit free-space, unaccounted-usage, and access reporting.
+Choose **Disk Map → Map Startup Disk** to begin.
+
 The native app also includes **Project Shelf**. It finds Git repositories under
 your home folder, accepts other project folders you add manually, and can move
 the complete folder to iCloud Drive, another cloud-synced folder, or an external

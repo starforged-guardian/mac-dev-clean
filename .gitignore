@@ -30,9 +30,12 @@ macos/.swiftpm/
 DerivedData/
 *.egg-info/
 notary-log-*.json
-
+CLAUDE.md
 # Only the two brand images embedded by the native app are public artifacts.
 # Layered source artwork and unused variants remain local by default.
 raven_vector_logos/*
 !raven_vector_logos/raven-vector-dark.png
 !raven_vector_logos/raven-vector-dark-trans.png
+
+# Claude Code per-machine settings
+.claude/settings.local.json
