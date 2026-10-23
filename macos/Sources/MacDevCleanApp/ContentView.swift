@@ -2,6 +2,7 @@ import SwiftUI
 
 enum SidebarPage: String, CaseIterable, Identifiable {
     case cleanup = "Cleanup"
+    case diskMap = "Disk Map"
     case review = "Review Only"
     case simulators = "Simulators"
     case projects = "Project Shelf"
@@ -11,6 +12,7 @@ enum SidebarPage: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .cleanup: "sparkles"
+        case .diskMap: "square.grid.3x3.square"
         case .review: "archivebox"
         case .simulators: "iphone.gen3"
         case .projects: "externaldrive.badge.icloud"
@@ -23,6 +25,7 @@ struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @State private var page: SidebarPage? = .cleanup
     @State private var showsConfirmation = false
+    @StateObject private var diskMap = DiskMapModel()
 
     var body: some View {
         NavigationSplitView {
@@ -38,14 +41,20 @@ struct ContentView: View {
             Group {
                 if page == .about {
                     AboutView()
+                } else if page == .diskMap {
+                    DiskMapView(map: diskMap)
                 } else if page == .projects {
                     RepositoryShelfView()
                 } else {
                     VStack(spacing: 0) {
-                        header
-                        Divider()
+                        if !isInitialScan || page == .simulators {
+                            header
+                            Divider()
+                        }
                         content
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                    .navigationTitle(page?.rawValue ?? SidebarPage.cleanup.rawValue)
                 }
             }
             .background(Color(nsColor: .windowBackgroundColor))
@@ -69,22 +78,13 @@ struct ContentView: View {
                     .disabled(model.isBusy)
                     .help("Scan developer storage again")
 
-                    if page == .cleanup {
+                    if page == .cleanup && !isInitialScan {
                         Button("Select All") { model.selectAll() }
                             .disabled(model.isBusy || model.groups.isEmpty)
                             .help("Select every cleanable category")
                         Button("Clear") { model.clearSelection() }
                             .disabled(model.isBusy || model.selectedFlags.isEmpty)
                             .help("Clear the cleanup selection")
-                        Button {
-                            showsConfirmation = true
-                        } label: {
-                            Label("Clean Selected", systemImage: "trash")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                        .disabled(model.isBusy || model.selectedFlags.isEmpty)
-                        .help("Clean the selected categories")
                     }
                 } else if page == .projects {
                     Button {
@@ -124,7 +124,7 @@ struct ContentView: View {
                 await model.scanSimulators()
             } else if page == .projects {
                 await model.loadRepositoryShelfIfNeeded()
-            } else if page != .about {
+            } else if page != .about && page != .diskMap {
                 await model.scanIfNeeded()
             }
         }
@@ -132,11 +132,11 @@ struct ContentView: View {
 
     private var sidebarFooter: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if model.isBusy {
+            if model.isBusy || diskMap.isScanning {
                 ProgressView()
                     .controlSize(.small)
             }
-            Text(model.activity.message)
+            Text(diskMap.isScanning ? "Mapping disk storage…" : model.activity.message)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -147,63 +147,26 @@ struct ContentView: View {
 
     private var header: some View {
         VStack(spacing: 14) {
-            HStack(spacing: 14) {
-                AppLogo(size: 52)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("mac-dev-clean")
-                        .font(.title2.bold())
-                    Text("Mac disk cleanup tool")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
-            if page != .simulators {
-                HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                if page != .simulators {
                     SummaryCard(
                         title: "Cleanable",
                         value: model.report?.cleanableTotal ?? "—",
+                        detail: countLabel(model.groups.count, "category", "categories"),
                         symbol: "sparkles",
                         color: .green
                     )
                     SummaryCard(
                         title: "Review only",
                         value: model.report?.reportOnlyTotal ?? "—",
+                        detail: countLabel(model.reviewItems.count, "item", "items"),
                         symbol: "archivebox",
                         color: .orange
                     )
-                    SummaryCard(
-                        title: "Selected",
-                        value: model.selectedFlags.isEmpty ? "None" : model.selectedSummary,
-                        symbol: "checkmark.circle",
-                        color: .blue
-                    )
                 }
+                DiskUsageCard(disk: model.diskSpace)
             }
-
-            HStack(spacing: 12) {
-                SummaryCard(
-                    title: "Free space",
-                    value: model.diskSpace?.free ?? "—",
-                    symbol: "internaldrive",
-                    color: .cyan
-                )
-                SummaryCard(
-                    title: "Total disk size",
-                    value: model.diskSpace?.total ?? "—",
-                    symbol: "externaldrive",
-                    color: .purple
-                )
-            }
-
-            if page == .cleanup || page == .review {
-                Button {
-                    page = .simulators
-                } label: {
-                    Label("Review large simulator devices…", systemImage: "iphone.gen3")
-                }
-                .disabled(model.isBusy)
-            }
+            .fixedSize(horizontal: false, vertical: true)
 
             if let error = model.errorMessage {
                 MessageBanner(
@@ -231,23 +194,73 @@ struct ContentView: View {
         .padding(20)
     }
 
+    private var cleanupActionBar: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.selectedFlags.isEmpty ? "Nothing selected" : "\(ByteFormatter.string(model.selectedBytes)) selected")
+                    .font(.headline.monospacedDigit())
+                Text(model.selectedFlags.isEmpty ? "Tick the categories you want to clean." : selectedDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                showsConfirmation = true
+            } label: {
+                Label(
+                    model.selectedFlags.isEmpty ? "Clean Selected" : "Clean \(ByteFormatter.string(model.selectedBytes))",
+                    systemImage: "trash"
+                )
+                .font(.body.weight(.semibold))
+                .padding(.horizontal, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(.red)
+            .keyboardShortcut(.delete, modifiers: .command)
+            .disabled(model.isBusy || model.selectedFlags.isEmpty)
+            .help("Clean the selected categories (⌘⌫)")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    private var isInitialScan: Bool {
+        model.report == nil && model.isBusy
+    }
+
+    private var selectedDetail: String {
+        let selected = model.selectedGroups
+        if selected.isEmpty { return "Choose categories below" }
+        let locations = countLabel(model.selectedLocationCount, "location", "locations")
+        let shared = selected.contains { $0.hasUnknownSize } ? " + shared sim data" : ""
+        return locations + shared
+    }
+
+    private func countLabel(_ count: Int, _ singular: String, _ plural: String) -> String {
+        "\(count) \(count == 1 ? singular : plural)"
+    }
+
     @ViewBuilder
     private var content: some View {
         if page == .simulators {
             SimulatorDevicesView()
         } else if model.report == nil && model.isBusy {
-            ContentUnavailableView {
-                Label("Scanning", systemImage: "internaldrive")
-            } description: {
-                Text("Measuring developer caches and review-only storage…")
-            }
+            ScanningHeroView(disk: model.diskSpace)
         } else {
             switch page {
             case .review:
                 ReviewOnlyView()
             case .cleanup, .none:
                 CleanupGroupsView()
-            case .projects, .about, .simulators:
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if !model.groups.isEmpty {
+                            cleanupActionBar
+                        }
+                    }
+            case .projects, .about, .simulators, .diskMap:
                 EmptyView()
             }
         }
@@ -492,28 +505,139 @@ struct ReviewOnlyView: View {
 struct SummaryCard: View {
     let title: String
     let value: String
+    var detail: String = ""
     let symbol: String
     let color: Color
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .foregroundStyle(color)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.headline.monospacedDigit())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            Spacer(minLength: 0)
+        StatTile(title: title, symbol: symbol, color: color) {
+            Text(value)
+                .font(.title2.weight(.semibold).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct DiskUsageCard: View {
+    let disk: DiskSpace?
+
+    private var usedFraction: Double {
+        guard let disk, disk.totalBytes > 0 else { return 0 }
+        return min(1, max(0, 1 - Double(disk.freeBytes) / Double(disk.totalBytes)))
+    }
+
+    var body: some View {
+        StatTile(title: "Free space", symbol: "internaldrive", color: .cyan) {
+            Text(disk?.free ?? "—")
+                .font(.title2.weight(.semibold).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            HStack(spacing: 8) {
+                ProgressView(value: usedFraction)
+                    .progressViewStyle(.linear)
+                    .tint(usedFraction > 0.9 ? .red : .cyan)
+                Text("of \(disk?.total ?? "—")")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(disk?.free ?? "Unknown") free of \(disk?.total ?? "unknown")")
+    }
+}
+
+private struct StatTile<Content: View>: View {
+    let title: String
+    let symbol: String
+    let color: Color
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: symbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 22, height: 22)
+                    .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+            }
+            content
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.15))
+        }
+    }
+}
+
+/// Shown in place of the summary and list until the first scan finishes.
+struct ScanningHeroView: View {
+    let disk: DiskSpace?
+
+    private static let places: [(title: String, symbol: String)] = [
+        ("Xcode", "hammer.fill"),
+        ("Simulators", "iphone.gen3"),
+        ("Homebrew", "mug.fill"),
+        ("npm, pnpm & Bun", "shippingbox.fill"),
+        ("Python", "chevron.left.forwardslash.chevron.right"),
+        ("SwiftPM", "swift"),
+        ("Go & Rust", "gearshape.2.fill"),
+        ("Gradle", "cube.fill"),
+        ("Browsers & editors", "globe"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 22) {
+            AppLogo(size: 72)
+
+            VStack(spacing: 6) {
+                Text("Scanning developer storage")
+                    .font(.title2.weight(.semibold))
+                Text("Measuring caches and build artifacts. Nothing is deleted until you choose what to clean.")
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            ProgressView()
+                .progressViewStyle(.linear)
+                .frame(width: 280)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                ForEach(Self.places, id: \.title) { place in
+                    Label(place.title, systemImage: place.symbol)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
+            .frame(maxWidth: 500)
+
+            if let disk {
+                Label("\(disk.free) free of \(disk.total)", systemImage: "internaldrive")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: 520)
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

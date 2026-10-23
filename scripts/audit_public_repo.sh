@@ -33,7 +33,7 @@ if ! grep -Fq 'All rights reserved.' BRANDING.md; then
 fi
 
 echo "Checking for machine-specific absolute home paths..."
-if rg -n --pcre2 '/Users/(?!test(?:/|$)|example(?:/|$)|<local-user>)' \
+if rg -n --pcre2 '/Users/(?!(?:test|example)(?![\w.-])|<local-user>)' \
     --glob '!scripts/audit_public_repo.sh' \
     --glob '!*.png' \
     --glob '!*.icns' \
@@ -46,9 +46,9 @@ git diff --check
 
 if command -v gitleaks >/dev/null 2>&1; then
     echo "Scanning candidate files with Gitleaks..."
-    gitleaks detect --source . --no-git --redact --no-banner
+    gitleaks dir --redact --no-banner .
     echo "Scanning Git history with Gitleaks..."
-    gitleaks detect --source . --redact --no-banner
+    gitleaks git --redact --no-banner .
 else
     echo "Gitleaks is not installed; filename, path, and diff checks passed."
 fi

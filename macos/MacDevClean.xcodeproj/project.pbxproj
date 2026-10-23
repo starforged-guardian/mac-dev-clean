@@ -18,9 +18,12 @@
 		64016BFD0BFAFC177C109DB8 /* mac-dev-clean-logo.png in Resources */ = {isa = PBXBuildFile; fileRef = BE5468581F43DFF47C84FEB2 /* mac-dev-clean-logo.png */; };
 		779945226F2B5F48931596A8 /* MacDevCleanApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611A386D3BFBC22F5FFAB41C /* MacDevCleanApp.swift */; };
 		7E487615C68D3C80551FEE30 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F1CCAB5B17153BFAEB31CC /* Models.swift */; };
+		942D54314772EDF16D0A7CB7 /* DiskMapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896C9F8C0CBF78802DF3E5DF /* DiskMapTests.swift */; };
 		A6E759F9352948A9FDB8C25E /* BRANDING.md in Resources */ = {isa = PBXBuildFile; fileRef = E39B9169C02F626865BB52A1 /* BRANDING.md */; };
+		ABD62523D4A384F229ED07E6 /* DiskMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D53A75FDF3339710A9852C /* DiskMap.swift */; };
 		BA0DC952F36F4B61723ABF62 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = ED62B12B17721DCF8C516203 /* AppIcon.icns */; };
 		C65D3F290CD653FF2DEF39C2 /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF2562FDADAF86D24061C54C /* Backend.swift */; };
+		FBE9A79EAE4E4738A22249D2 /* DiskMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE096758A38C5D5C22033A4 /* DiskMapView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,8 +42,10 @@
 		24C10CDD9C7DCB79567282E1 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		24F1CCAB5B17153BFAEB31CC /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		611A386D3BFBC22F5FFAB41C /* MacDevCleanApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDevCleanApp.swift; sourceTree = "<group>"; };
+		74D53A75FDF3339710A9852C /* DiskMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskMap.swift; sourceTree = "<group>"; };
 		753C19C40473BFED38118EE9 /* raven-vector-dark-trans.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "raven-vector-dark-trans.png"; sourceTree = "<group>"; };
 		7DFCAE7ADB932C66BB6BB6B6 /* mac-dev-clean.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "mac-dev-clean.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		896C9F8C0CBF78802DF3E5DF /* DiskMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskMapTests.swift; sourceTree = "<group>"; };
 		8CCAA44421685885637FCEE8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A406D281A19A7DFCA2E1DB7E /* RepositoryShelf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryShelf.swift; sourceTree = "<group>"; };
 		A7F8FBF2CD5603CAC0FDE3C0 /* RepositoryShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryShelfView.swift; sourceTree = "<group>"; };
@@ -50,12 +55,14 @@
 		E6910769539D2B91EA7C3414 /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
 		ED62B12B17721DCF8C516203 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		F949198D7517F916F78D1A5C /* raven-vector-dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "raven-vector-dark.png"; sourceTree = "<group>"; };
+		FDE096758A38C5D5C22033A4 /* DiskMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		583FFBEA3F4FD020606FDE7B /* MacDevCleanAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				896C9F8C0CBF78802DF3E5DF /* DiskMapTests.swift */,
 				24C10CDD9C7DCB79567282E1 /* ModelTests.swift */,
 			);
 			path = MacDevCleanAppTests;
@@ -140,6 +147,8 @@
 				0FB0C1A26CD553D8B98C60FF /* AppModel.swift */,
 				CF2562FDADAF86D24061C54C /* Backend.swift */,
 				8CCAA44421685885637FCEE8 /* ContentView.swift */,
+				74D53A75FDF3339710A9852C /* DiskMap.swift */,
+				FDE096758A38C5D5C22033A4 /* DiskMapView.swift */,
 				611A386D3BFBC22F5FFAB41C /* MacDevCleanApp.swift */,
 				24F1CCAB5B17153BFAEB31CC /* Models.swift */,
 				A406D281A19A7DFCA2E1DB7E /* RepositoryShelf.swift */,
@@ -292,6 +301,8 @@
 				07B989EA731F080ACF7B5660 /* AppModel.swift in Sources */,
 				C65D3F290CD653FF2DEF39C2 /* Backend.swift in Sources */,
 				084778E0523E221526834A90 /* ContentView.swift in Sources */,
+				ABD62523D4A384F229ED07E6 /* DiskMap.swift in Sources */,
+				FBE9A79EAE4E4738A22249D2 /* DiskMapView.swift in Sources */,
 				779945226F2B5F48931596A8 /* MacDevCleanApp.swift in Sources */,
 				7E487615C68D3C80551FEE30 /* Models.swift in Sources */,
 				39AAD2A3D7B370D706C86F3A /* RepositoryShelf.swift in Sources */,
@@ -303,6 +314,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				942D54314772EDF16D0A7CB7 /* DiskMapTests.swift in Sources */,
 				471559FF3A502EBBE2A230FA /* ModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
